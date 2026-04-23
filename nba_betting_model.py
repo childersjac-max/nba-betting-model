@@ -60,6 +60,18 @@ KELLY_FRACTION = 0.25
 # 1. DATA COLLECTION
 # ─────────────────────────────────────────────────────────────────────────────
 
+def safe_get(obj, *attrs, default=None):
+    """Try multiple attribute names, return first that works."""
+    for attr in attrs:
+        try:
+            val = getattr(obj, attr, None)
+            if val is not None:
+                return val
+        except Exception:
+            pass
+    return default
+
+
 def fetch_team_game_logs(season: int = SEASON) -> pd.DataFrame:
     print(f"[Data] Fetching team schedules for {season - 1}-{str(season)[-2:]} season...")
     rows = []
@@ -68,36 +80,56 @@ def fetch_team_game_logs(season: int = SEASON) -> pd.DataFrame:
         try:
             schedule = Schedule(abbr, year=season)
             for game in schedule:
+                # Skip games with no result yet (future games)
+                result_raw = safe_get(game, "result")
+                if result_raw not in ("W", "L"):
+                    continue
+
+                pts_for     = safe_get(game, "points", default=0) or 0
+                pts_against = safe_get(game, "opp_points", "opponent_points", default=0) or 0
+
+                # date — sportsreference uses datetime object or string
+                date_val = safe_get(game, "date")
+                try:
+                    date_val = pd.to_datetime(date_val)
+                except Exception:
+                    continue  # skip if we can't parse date
+
+                location = safe_get(game, "location", default="")
                 row = {
-                    "team":       abbr,
-                    "date":       game.date,
-                    "opponent":   game.opponent_abbr,
-                    "home":       1 if game.location == "Home" else 0,
-                    "pts_for":    game.points,
-                    "pts_against":game.opp_points,
-                    "fg_pct":     game.fg_percentage,
-                    "fg3_pct":    game.three_point_field_goal_percentage,
-                    "ft_pct":     game.free_throw_percentage,
-                    "oreb":       game.offensive_rebounds,
-                    "dreb":       game.defensive_rebounds,
-                    "ast":        game.assists,
-                    "tov":        game.turnovers,
-                    "stl":        game.steals,
-                    "blk":        game.blocks,
-                    "pace":       game.pace,
-                    "off_rtg":    game.offensive_rating,
-                    "def_rtg":    game.defensive_rating,
-                    "result":     1 if game.result == "W" else 0,
+                    "team":        abbr,
+                    "date":        date_val,
+                    "opponent":    safe_get(game, "opponent_abbr", "opponent", default="UNK"),
+                    "home":        1 if str(location).strip() in ("", "Home") else 0,
+                    "pts_for":     float(pts_for),
+                    "pts_against": float(pts_against),
+                    "fg_pct":      float(safe_get(game, "fg_percentage", default=0) or 0),
+                    "fg3_pct":     float(safe_get(game, "three_point_field_goal_percentage", default=0) or 0),
+                    "ft_pct":      float(safe_get(game, "free_throw_percentage", default=0) or 0),
+                    "oreb":        float(safe_get(game, "offensive_rebounds", default=0) or 0),
+                    "dreb":        float(safe_get(game, "defensive_rebounds", default=0) or 0),
+                    "ast":         float(safe_get(game, "assists", default=0) or 0),
+                    "tov":         float(safe_get(game, "turnovers", default=0) or 0),
+                    "stl":         float(safe_get(game, "steals", default=0) or 0),
+                    "blk":         float(safe_get(game, "blocks", default=0) or 0),
+                    "pace":        float(safe_get(game, "pace", default=0) or 0),
+                    "off_rtg":     float(safe_get(game, "offensive_rating", default=0) or 0),
+                    "def_rtg":     float(safe_get(game, "defensive_rating", default=0) or 0),
+                    "result":      1 if result_raw == "W" else 0,
                 }
                 rows.append(row)
         except Exception as e:
             print(f"  Warning: could not fetch {abbr}: {e}")
+
+    if not rows:
+        raise RuntimeError("No game data fetched — check sportsreference connectivity.")
 
     df = pd.DataFrame(rows)
     df["date"] = pd.to_datetime(df["date"])
     df = df.sort_values(["team", "date"]).reset_index(drop=True)
     df["point_diff"] = df["pts_for"] - df["pts_against"]
     df["total_pts"]  = df["pts_for"] + df["pts_against"]
+    print(f"[Data] Fetched {len(df)} team-game rows across {df['team'].nunique()} teams.")
     return df
 
 
@@ -429,3 +461,4 @@ if __name__ == "__main__":
         json.dump(all_predictions, f, indent=2)
 
     print(f"\n✓ predictions.json written ({len(all_predictions['games'])} games)")
+    
