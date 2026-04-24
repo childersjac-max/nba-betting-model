@@ -1,7 +1,7 @@
 # “””
 NBA Betting Model
 
-Data:   balldontlie API free tier (game scores only — no box scores needed)
+Data:   balldontlie API free tier (game scores only - no box scores needed)
 Covers: Moneyline · Spread · Over/Under
 Models: Logistic Regression, Ridge Regression, XGBoost
 “””
