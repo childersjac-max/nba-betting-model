@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-04-24T19:39:16.261462Z",
+  "generated_at": "2026-04-24T22:38:13.171414Z",
   "games": [
     {
       "matchup": "BOS vs NYK",
-      "generated_at": "2026-04-24T19:39:16.265326Z",
+      "generated_at": "2026-04-24T22:38:13.175378Z",
       "moneyline": {
         "home_win_prob": 0.723,
         "away_win_prob": 0.277,
@@ -54,7 +54,7 @@
     },
     {
       "matchup": "OKC vs DEN",
-      "generated_at": "2026-04-24T19:39:16.271507Z",
+      "generated_at": "2026-04-24T22:38:13.181728Z",
       "moneyline": {
         "home_win_prob": 0.749,
         "away_win_prob": 0.251,
@@ -105,7 +105,7 @@
     },
     {
       "matchup": "SAS vs HOU",
-      "generated_at": "2026-04-24T19:39:16.277541Z",
+      "generated_at": "2026-04-24T22:38:13.187937Z",
       "moneyline": {
         "home_win_prob": 0.218,
         "away_win_prob": 0.782,
