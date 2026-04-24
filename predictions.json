@@ -1,0 +1,158 @@
+{
+  "generated_at": "2026-04-24T19:39:16.261462Z",
+  "games": [
+    {
+      "matchup": "BOS vs NYK",
+      "generated_at": "2026-04-24T19:39:16.265326Z",
+      "moneyline": {
+        "home_win_prob": 0.723,
+        "away_win_prob": 0.277,
+        "home_bet": {
+          "model_prob": 0.723,
+          "implied_prob": 0.608,
+          "edge": 0.115,
+          "kelly_pct": 7.3,
+          "bet": true
+        },
+        "away_bet": {
+          "model_prob": 0.277,
+          "implied_prob": 0.392,
+          "edge": -0.115,
+          "kelly_pct": 0,
+          "bet": false
+        }
+      },
+      "spread": {
+        "predicted_margin": 7.67,
+        "home_covers_prob": 0.65,
+        "home_bet": {
+          "model_prob": 0.65,
+          "implied_prob": 0.524,
+          "edge": 0.126,
+          "kelly_pct": 6.6,
+          "bet": true
+        }
+      },
+      "totals": {
+        "predicted_total": 220.0,
+        "over_prob": 0.41,
+        "over_bet": {
+          "model_prob": 0.41,
+          "implied_prob": 0.524,
+          "edge": -0.114,
+          "kelly_pct": 0,
+          "bet": false
+        },
+        "under_bet": {
+          "model_prob": 0.59,
+          "implied_prob": 0.524,
+          "edge": 0.067,
+          "kelly_pct": 3.5,
+          "bet": true
+        }
+      }
+    },
+    {
+      "matchup": "OKC vs DEN",
+      "generated_at": "2026-04-24T19:39:16.271507Z",
+      "moneyline": {
+        "home_win_prob": 0.749,
+        "away_win_prob": 0.251,
+        "home_bet": {
+          "model_prob": 0.749,
+          "implied_prob": 0.643,
+          "edge": 0.106,
+          "kelly_pct": 7.4,
+          "bet": true
+        },
+        "away_bet": {
+          "model_prob": 0.251,
+          "implied_prob": 0.357,
+          "edge": -0.106,
+          "kelly_pct": 0,
+          "bet": false
+        }
+      },
+      "spread": {
+        "predicted_margin": 8.48,
+        "home_covers_prob": 0.65,
+        "home_bet": {
+          "model_prob": 0.65,
+          "implied_prob": 0.524,
+          "edge": 0.126,
+          "kelly_pct": 6.6,
+          "bet": true
+        }
+      },
+      "totals": {
+        "predicted_total": 240.5,
+        "over_prob": 0.65,
+        "over_bet": {
+          "model_prob": 0.65,
+          "implied_prob": 0.524,
+          "edge": 0.126,
+          "kelly_pct": 6.6,
+          "bet": true
+        },
+        "under_bet": {
+          "model_prob": 0.35,
+          "implied_prob": 0.524,
+          "edge": -0.174,
+          "kelly_pct": 0,
+          "bet": false
+        }
+      }
+    },
+    {
+      "matchup": "SAS vs HOU",
+      "generated_at": "2026-04-24T19:39:16.277541Z",
+      "moneyline": {
+        "home_win_prob": 0.218,
+        "away_win_prob": 0.782,
+        "home_bet": {
+          "model_prob": 0.218,
+          "implied_prob": 0.565,
+          "edge": -0.347,
+          "kelly_pct": 0,
+          "bet": false
+        },
+        "away_bet": {
+          "model_prob": 0.782,
+          "implied_prob": 0.435,
+          "edge": 0.347,
+          "kelly_pct": 15.4,
+          "bet": true
+        }
+      },
+      "spread": {
+        "predicted_margin": -10.34,
+        "home_covers_prob": 0.353,
+        "home_bet": {
+          "model_prob": 0.353,
+          "implied_prob": 0.524,
+          "edge": -0.171,
+          "kelly_pct": 0,
+          "bet": false
+        }
+      },
+      "totals": {
+        "predicted_total": 237.4,
+        "over_prob": 0.65,
+        "over_bet": {
+          "model_prob": 0.65,
+          "implied_prob": 0.524,
+          "edge": 0.126,
+          "kelly_pct": 6.6,
+          "bet": true
+        },
+        "under_bet": {
+          "model_prob": 0.35,
+          "implied_prob": 0.524,
+          "edge": -0.174,
+          "kelly_pct": 0,
+          "bet": false
+        }
+      }
+    }
+  ]
+}
