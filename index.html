@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NBA Edge Model</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #090b0f;
+    --surface:  #0f1318;
+    --border:   #1e2530;
+    --accent:   #00e5ff;
+    --green:    #00ff87;
+    --red:      #ff3d5a;
+    --yellow:   #ffd600;
+    --muted:    #4a5568;
+    --text:     #e2e8f0;
+    --text-dim: #718096;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content:'';
+    position:fixed; inset:0;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 2px,
+      rgba(0,229,255,0.015) 2px, rgba(0,229,255,0.015) 4px
+    );
+    pointer-events:none; z-index:9999;
+  }
+
+  header {
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: -0.5px;
+    color: var(--accent);
+  }
+
+  .logo span { color: var(--text-dim); font-weight: 400; }
+
+  .header-meta {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-align: right;
+    line-height: 1.6;
+  }
+
+  .status-dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    margin-right: 6px;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%,100% { opacity:1; }
+    50% { opacity:0.3; }
+  }
+
+  .main { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+
+  /* Model stats bar */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .stat-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .stat-value.green { color: var(--green); }
+  .stat-value.yellow { color: var(--yellow); }
+
+  /* Section header */
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Game cards */
+  .games-grid {
+    display: grid;
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  .game-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .game-card:hover { border-color: var(--accent); }
+
+  .game-card.has-bet { border-color: rgba(0,255,135,0.4); }
+  .game-card.b2b-alert { border-color: rgba(255,214,0,0.4); }
+
+  .game-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .matchup {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+
+  .matchup .away { color: var(--text-dim); }
+  .matchup .sep  { color: var(--border); margin: 0 10px; }
+
+  .game-time {
+    font-size: 11px;
+    color: var(--text-dim);
+    background: rgba(255,255,255,0.04);
+    padding: 4px 10px;
+    border-radius: 4px;
+  }
+
+  .game-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0;
+  }
+
+  .game-section {
+    padding: 16px 20px;
+    border-right: 1px solid var(--border);
+  }
+
+  .game-section:last-child { border-right: none; }
+
+  .gs-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+
+  /* Win probability bar */
+  .prob-bar-wrap {
+    margin-bottom: 8px;
+  }
+
+  .prob-bar-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+
+  .prob-bar {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .prob-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--green));
+    border-radius: 3px;
+    transition: width 1s ease;
+  }
+
+  .prob-numbers {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+  }
+
+  .prob-home {
+    font-family: 'Syne', sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--accent);
+  }
+
+  .prob-away {
+    font-family: 'Syne', sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--text-dim);
+  }
+
+  .model-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+
+  .model-tag {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.05);
+    color: var(--text-dim);
+  }
+
+  .model-tag.consensus {
+    background: rgba(0,255,135,0.1);
+    color: var(--green);
+  }
+
+  /* Spread / Total */
+  .pred-big {
+    font-family: 'Syne', sans-serif;
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .pred-sub {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  /* Alerts */
+  .alert-row {
+    padding: 8px 20px;
+    background: rgba(255,214,0,0.06);
+    border-top: 1px solid rgba(255,214,0,0.2);
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .alert-badge {
+    font-size: 11px;
+    color: var(--yellow);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  /* ELO row */
+  .elo-row {
+    padding: 8px 20px 12px;
+    display: flex;
+    gap: 16px;
+    font-size: 11px;
+    color: var(--text-dim);
+    border-top: 1px solid var(--border);
+  }
+
+  .elo-val { color: var(--text); }
+
+  /* No games */
+  .no-games {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-dim);
+  }
+
+  .no-games-icon { font-size: 40px; margin-bottom: 12px; }
+  .no-games-text { font-size: 14px; }
+
+  /* Record tracker */
+  .record-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 32px;
+  }
+
+  .record-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .rec-item { text-align: center; }
+  .rec-val {
+    font-family: 'Syne', sans-serif;
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .rec-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
+  }
+
+  /* Error state */
+  .error-card {
+    background: rgba(255,61,90,0.08);
+    border: 1px solid rgba(255,61,90,0.3);
+    border-radius: 8px;
+    padding: 20px;
+    color: var(--red);
+    font-size: 13px;
+  }
+
+  /* Loading */
+  .loading {
+    text-align:center; padding:80px 20px; color:var(--text-dim);
+  }
+
+  .loading-spinner {
+    width:40px; height:40px;
+    border:2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius:50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* Refresh button */
+  .refresh-btn {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 6px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+  }
+
+  .refresh-btn:hover {
+    background: var(--accent);
+    color: var(--bg);
+  }
+
+  @media (max-width: 700px) {
+    .stats-bar { grid-template-columns: repeat(2, 1fr); }
+    .game-body { grid-template-columns: 1fr; }
+    .game-section { border-right: none; border-bottom: 1px solid var(--border); }
+    .record-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">NBA<span>/</span>EDGE</div>
+  <div class="header-meta">
+    <div><span class="status-dot"></span><span id="last-updated">Loading...</span></div>
+    <div id="model-version" style="margin-top:2px;"></div>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Model Stats -->
+  <div class="stats-bar" id="stats-bar">
+    <div class="stat-card"><div class="stat-label">LR AUC</div><div class="stat-value" id="lr-auc">--</div></div>
+    <div class="stat-card"><div class="stat-label">XGB AUC</div><div class="stat-value" id="xgb-auc">--</div></div>
+    <div class="stat-card"><div class="stat-label">Spread MAE</div><div class="stat-value yellow" id="sp-mae">--</div></div>
+    <div class="stat-card"><div class="stat-label">Total MAE</div><div class="stat-value yellow" id="tot-mae">--</div></div>
+  </div>
+
+  <!-- Record Tracker -->
+  <div id="record-section" style="display:none">
+    <div class="section-title">All-Time Record</div>
+    <div class="record-card">
+      <div class="record-grid">
+        <div class="rec-item"><div class="rec-val green" id="rec-wins">0</div><div class="rec-label">Wins</div></div>
+        <div class="rec-item"><div class="rec-val red"   id="rec-losses">0</div><div class="rec-label">Losses</div></div>
+        <div class="rec-item"><div class="rec-val"       id="rec-rate">-</div><div class="rec-label">Win Rate</div></div>
+        <div class="rec-item"><div class="rec-val accent" id="rec-edge">-</div><div class="rec-label">Avg Edge</div></div>
+        <div class="rec-item"><div class="rec-val yellow" id="rec-pending">0</div><div class="rec-label">Pending</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Games -->
+  <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
+    <span id="games-title">TODAY'S GAMES</span>
+    <button class="refresh-btn" onclick="loadData()">REFRESH</button>
+  </div>
+
+  <div class="games-grid" id="games-container">
+    <div class="loading">
+      <div class="loading-spinner"></div>
+      <div>Fetching predictions...</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const PREDICTIONS_URL = './predictions.json';
+
+async function loadData() {
+  const container = document.getElementById('games-container');
+  container.innerHTML = '<div class="loading"><div class="loading-spinner"></div><div>Loading...</div></div>';
+
+  try {
+    const res  = await fetch(PREDICTIONS_URL + '?t=' + Date.now());
+    const data = await res.json();
+
+    // Header
+    const d = new Date(data.generated_at);
+    document.getElementById('last-updated').textContent =
+      'Updated ' + d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) +
+      ' at ' + d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    document.getElementById('model-version').textContent =
+      (data.model_version || 'v1').toUpperCase();
+
+    // Model stats
+    if (data.model_stats) {
+      const ms = data.model_stats;
+      document.getElementById('lr-auc').textContent  = ms.ml_lr_auc  || '--';
+      document.getElementById('xgb-auc').textContent = ms.ml_xgb_auc || '--';
+      document.getElementById('sp-mae').textContent  = (ms.spread_mae || '--') + ' pts';
+      document.getElementById('tot-mae').textContent = (ms.totals_mae || '--') + ' pts';
+    }
+
+    // Record
+    if (data.bet_log_summary && data.bet_log_summary.total_bets > 0) {
+      const s = data.bet_log_summary;
+      document.getElementById('record-section').style.display = 'block';
+      document.getElementById('rec-wins').textContent    = s.wins;
+      document.getElementById('rec-losses').textContent  = s.losses;
+      document.getElementById('rec-rate').textContent    = (s.win_rate*100).toFixed(1) + '%';
+      document.getElementById('rec-edge').textContent    = (s.avg_edge*100 >= 0 ? '+' : '') + (s.avg_edge*100).toFixed(1) + '%';
+      document.getElementById('rec-pending').textContent = s.pending_bets || 0;
+    }
+
+    // Games
+    const games = data.games || [];
+    if (!games.length) {
+      container.innerHTML = `
+        <div class="no-games">
+          <div class="no-games-icon">🏀</div>
+          <div class="no-games-text">No games scheduled today</div>
+        </div>`;
+      document.getElementById('games-title').textContent =
+        'NO GAMES TODAY';
+      return;
+    }
+
+    document.getElementById('games-title').textContent =
+      `TODAY'S GAMES (${games.length})`;
+
+    container.innerHTML = games.map(g => renderGame(g)).join('');
+
+    // Animate probability bars
+    requestAnimationFrame(() => {
+      document.querySelectorAll('.prob-fill').forEach(el => {
+        el.style.width = el.dataset.width + '%';
+      });
+    });
+
+  } catch(e) {
+    container.innerHTML = `
+      <div class="error-card">
+        Could not load predictions.json — make sure the model has run at least once.<br>
+        <small style="opacity:0.6;margin-top:6px;display:block">${e.message}</small>
+      </div>`;
+  }
+}
+
+function renderGame(g) {
+  if (g.error) {
+    return `<div class="game-card" style="padding:20px;color:var(--red)">
+      ${g.matchup} — Error: ${g.error}</div>`;
+  }
+
+  const ml  = g.moneyline || {};
+  const sp  = g.spread    || {};
+  const tot = g.totals    || {};
+  const elo = g.elo       || {};
+
+  const hwp  = ((ml.home_win_prob || 0.5) * 100).toFixed(1);
+  const awp  = ((ml.away_win_prob || 0.5) * 100).toFixed(1);
+  const hasBet   = (g.bets_flagged || []).length > 0;
+  const hasAlert = (g.fatigue_alert || []).length > 0;
+
+  const consensus = ml.model_consensus
+    ? '<span class="model-tag consensus">MODELS AGREE</span>'
+    : '<span class="model-tag">MODELS SPLIT</span>';
+
+  const alertHtml = hasAlert ? `
+    <div class="alert-row">
+      ${g.fatigue_alert.map(a => `<div class="alert-badge">&#9888; ${a}</div>`).join('')}
+    </div>` : '';
+
+  const margin = sp.predicted_margin !== undefined
+    ? (sp.predicted_margin >= 0 ? '+' : '') + sp.predicted_margin.toFixed(1)
+    : '--';
+
+  const total = tot.predicted_total || '--';
+
+  return `
+  <div class="game-card ${hasBet ? 'has-bet' : ''} ${hasAlert ? 'b2b-alert' : ''}">
+    <div class="game-header">
+      <div class="matchup">
+        <span>${g.home_team || g.matchup.split(' vs ')[0]}</span>
+        <span class="sep">vs</span>
+        <span class="away">${g.away_team || g.matchup.split(' vs ')[1]}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        ${hasBet ? '<span style="font-size:11px;color:var(--green);letter-spacing:1px">EDGE FOUND</span>' : ''}
+        <div class="game-time">${g.game_time || 'Scheduled'}</div>
+      </div>
+    </div>
+
+    <div class="game-body">
+
+      <div class="game-section">
+        <div class="gs-label">Moneyline</div>
+        <div class="prob-bar-wrap">
+          <div class="prob-bar-labels">
+            <span>${g.home_team || 'HOME'}</span>
+            <span>${g.away_team || 'AWAY'}</span>
+          </div>
+          <div class="prob-bar">
+            <div class="prob-fill" data-width="${hwp}" style="width:0%"></div>
+          </div>
+        </div>
+        <div class="prob-numbers">
+          <div class="prob-home">${hwp}%</div>
+          <div class="prob-away">${awp}%</div>
+        </div>
+        <div class="model-row">
+          <span class="model-tag">LR ${((ml.lr_prob||0)*100).toFixed(0)}%</span>
+          <span class="model-tag">XGB ${((ml.xgb_prob||0)*100).toFixed(0)}%</span>
+          <span class="model-tag">ELO ${((ml.elo_prob||0)*100).toFixed(0)}%</span>
+          ${consensus}
+        </div>
+      </div>
+
+      <div class="game-section">
+        <div class="gs-label">Spread (Home)</div>
+        <div class="pred-big">${margin}</div>
+        <div class="pred-sub">MAE &plusmn;${sp.model_mae || '--'} pts</div>
+      </div>
+
+      <div class="game-section">
+        <div class="gs-label">Total Points</div>
+        <div class="pred-big">${total}</div>
+        <div class="pred-sub">MAE &plusmn;${tot.model_mae || '--'} pts</div>
+      </div>
+
+    </div>
+
+    ${alertHtml}
+
+    <div class="elo-row">
+      <span>ELO: <span class="elo-val">${elo.home || '--'}</span> vs <span class="elo-val">${elo.away || '--'}</span></span>
+      <span>DIFF: <span class="elo-val">${elo.diff >= 0 ? '+' : ''}${elo.diff || '--'}</span></span>
+    </div>
+  </div>`;
+}
+
+loadData();
+</script>
+</body>
+</html>
