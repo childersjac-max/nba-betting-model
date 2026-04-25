@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BALLDONTLIE_API_KEY: ${{ secrets.BALLDONTLIE_API_KEY }}
-ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+      ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
 
     steps:
       - uses: actions/checkout@v4
@@ -34,6 +34,6 @@ ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add predictions.json
+          git add predictions.json backtest.json bet_log.json
           git diff --cached --quiet || git commit -m "auto: predictions $(date -u +%Y-%m-%d)"
           git push
