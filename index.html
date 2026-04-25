@@ -4,621 +4,542 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NBA Edge Model</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg:       #090b0f;
-    --surface:  #0f1318;
-    --border:   #1e2530;
-    --accent:   #00e5ff;
-    --green:    #00ff87;
-    --red:      #ff3d5a;
-    --yellow:   #ffd600;
-    --muted:    #4a5568;
-    --text:     #e2e8f0;
-    --text-dim: #718096;
-  }
+:root {
+  --bg:#090b0f; --surface:#0f1318; --surface2:#141920;
+  --border:#1e2530; --accent:#00e5ff; --green:#00ff87;
+  --red:#ff3d5a; --yellow:#ffd600; --purple:#b388ff;
+  --muted:#4a5568; --text:#e2e8f0; --dim:#718096;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,229,255,0.012) 2px,rgba(0,229,255,0.012) 4px);pointer-events:none;z-index:9999}
 
-  * { margin:0; padding:0; box-sizing:border-box; }
+header{padding:18px 32px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface);position:sticky;top:0;z-index:100}
+.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;color:var(--accent)}
+.logo span{color:var(--dim);font-weight:400}
+.header-right{display:flex;align-items:center;gap:16px}
+.updated{font-size:11px;color:var(--dim)}
+.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
+/* Tabs */
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);background:var(--surface);padding:0 32px}
+.tab{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:1px;text-transform:uppercase;padding:12px 20px;cursor:pointer;color:var(--dim);border-bottom:2px solid transparent;transition:all 0.2s;background:none;border-top:none;border-left:none;border-right:none}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
 
-  /* Scanline overlay */
-  body::before {
-    content:'';
-    position:fixed; inset:0;
-    background: repeating-linear-gradient(
-      0deg, transparent, transparent 2px,
-      rgba(0,229,255,0.015) 2px, rgba(0,229,255,0.015) 4px
-    );
-    pointer-events:none; z-index:9999;
-  }
+.main{max-width:1100px;margin:0 auto;padding:28px 24px}
+.tab-content{display:none}
+.tab-content.active{display:block}
 
-  header {
-    padding: 24px 32px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--surface);
-  }
+/* Stats bar */
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center}
+.stat-label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.stat-value{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:var(--accent)}
+.stat-value.green{color:var(--green)}
+.stat-value.yellow{color:var(--yellow)}
+.stat-value.red{color:var(--red)}
 
-  .logo {
-    font-family: 'Syne', sans-serif;
-    font-weight: 800;
-    font-size: 22px;
-    letter-spacing: -0.5px;
-    color: var(--accent);
-  }
+.section-title{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--dim);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
 
-  .logo span { color: var(--text-dim); font-weight: 400; }
+/* Game cards */
+.games-grid{display:grid;gap:14px;margin-bottom:36px}
+.game-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color 0.2s}
+.game-card:hover{border-color:rgba(255,255,255,0.15)}
+.game-card.has-rec{border-color:rgba(0,255,135,0.35)}
+.game-card.b2b{border-color:rgba(255,214,0,0.35)}
 
-  .header-meta {
-    font-size: 11px;
-    color: var(--text-dim);
-    text-align: right;
-    line-height: 1.6;
-  }
+.game-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
+.matchup{font-family:'Syne',sans-serif;font-size:19px;font-weight:800;letter-spacing:-0.5px}
+.matchup .vs{color:var(--border);margin:0 8px}
+.matchup .away{color:var(--dim)}
+.header-badges{display:flex;align-items:center;gap:8px}
+.badge{font-size:10px;letter-spacing:1px;padding:3px 9px;border-radius:3px}
+.badge.rec{background:rgba(0,255,135,0.12);color:var(--green);border:1px solid rgba(0,255,135,0.3)}
+.badge.b2b{background:rgba(255,214,0,0.1);color:var(--yellow);border:1px solid rgba(255,214,0,0.3)}
+.badge.time{background:rgba(255,255,255,0.04);color:var(--dim);border:1px solid var(--border)}
 
-  .status-dot {
-    display: inline-block;
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: var(--green);
-    margin-right: 6px;
-    animation: pulse 2s infinite;
-  }
+.game-body{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:0}
+.gs{padding:14px 18px;border-right:1px solid var(--border)}
+.gs:last-child{border-right:none}
+.gs-label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
 
-  @keyframes pulse {
-    0%,100% { opacity:1; }
-    50% { opacity:0.3; }
-  }
+.prob-bar{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin:5px 0}
+.prob-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));border-radius:3px;transition:width 1s ease}
+.prob-row{display:flex;justify-content:space-between;margin-top:6px}
+.prob-h{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--accent)}
+.prob-a{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--dim)}
+.model-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.mtag{font-size:10px;padding:2px 6px;border-radius:3px;background:rgba(255,255,255,0.04);color:var(--dim)}
+.mtag.agree{background:rgba(0,255,135,0.08);color:var(--green)}
 
-  .main { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+.pred-big{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;line-height:1}
+.pred-vs{font-size:11px;color:var(--dim);margin-top:3px}
+.pred-sub{font-size:10px;color:var(--muted);margin-top:4px}
 
-  /* Model stats bar */
-  .stats-bar {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 32px;
-  }
+/* Recommendations */
+.recs-section{padding:12px 18px;border-top:1px solid var(--border);background:rgba(0,255,135,0.03)}
+.rec-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.rec-row:last-child{border-bottom:none}
+.rec-grade{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;width:22px;text-align:center}
+.grade-A{color:var(--green)}
+.grade-B{color:var(--yellow)}
+.grade-C{color:var(--dim)}
+.rec-type{font-size:10px;letter-spacing:1px;padding:2px 7px;border-radius:3px;background:rgba(0,229,255,0.1);color:var(--accent)}
+.rec-side{font-family:'Syne',sans-serif;font-size:13px;font-weight:700}
+.rec-edge{font-size:11px;color:var(--green)}
+.rec-reason{font-size:10px;color:var(--dim);flex:1;text-align:right}
+.rec-kelly{font-size:10px;color:var(--yellow)}
 
-  .stat-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 16px;
-    text-align: center;
-  }
+.elo-row{padding:7px 18px;font-size:11px;color:var(--dim);border-top:1px solid var(--border);display:flex;gap:14px}
+.elo-v{color:var(--text)}
 
-  .stat-label {
-    font-size: 10px;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 6px;
-  }
+/* No live odds notice */
+.no-odds-notice{background:rgba(255,214,0,0.06);border:1px solid rgba(255,214,0,0.2);border-radius:6px;padding:10px 14px;font-size:11px;color:var(--yellow);margin-bottom:20px}
 
-  .stat-value {
-    font-family: 'Syne', sans-serif;
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--accent);
-  }
+/* ─── BACKTEST TAB ─── */
+.bt-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px}
+.bt-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px}
+.bt-title{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
+.bt-big{font-family:'Syne',sans-serif;font-size:32px;font-weight:800;line-height:1}
+.bt-sub{font-size:11px;color:var(--dim);margin-top:4px}
+.bt-row{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border)}
+.bt-row:last-child{border-bottom:none}
+.bt-key{color:var(--dim)}
+.bt-val{color:var(--text);font-weight:600}
 
-  .stat-value.green { color: var(--green); }
-  .stat-value.yellow { color: var(--yellow); }
+/* Bankroll chart */
+.chart-wrap{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:20px}
+.chart-title{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px}
+canvas{width:100%!important;max-height:180px}
 
-  /* Section header */
-  .section-title {
-    font-family: 'Syne', sans-serif;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    margin-bottom: 16px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--border);
-  }
+/* Calibration table */
+.cal-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+.cal-table th{text-align:left;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;padding:6px 10px;border-bottom:1px solid var(--border)}
+.cal-table td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,0.03)}
+.cal-bar-wrap{width:120px}
+.cal-bar-bg{height:4px;background:var(--border);border-radius:2px}
+.cal-bar-fill{height:4px;border-radius:2px;background:var(--accent)}
+.cal-good{color:var(--green)}
+.cal-bad{color:var(--red)}
 
-  /* Game cards */
-  .games-grid {
-    display: grid;
-    gap: 16px;
-    margin-bottom: 40px;
-  }
+/* Monthly table */
+.month-table{width:100%;border-collapse:collapse;font-size:12px}
+.month-table th{text-align:left;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;padding:6px 10px;border-bottom:1px solid var(--border)}
+.month-table td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,0.03)}
 
-  .game-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-    transition: border-color 0.2s;
-  }
+.loading{text-align:center;padding:60px 20px;color:var(--dim)}
+.spinner{width:36px;height:36px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 14px}
+@keyframes spin{to{transform:rotate(360deg)}}
 
-  .game-card:hover { border-color: var(--accent); }
+.refresh-btn{background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:10px;padding:5px 12px;border-radius:4px;cursor:pointer;letter-spacing:1px;transition:all 0.2s}
+.refresh-btn:hover{background:var(--accent);color:var(--bg)}
+.no-data{text-align:center;padding:40px;color:var(--dim);font-size:13px}
 
-  .game-card.has-bet { border-color: rgba(0,255,135,0.4); }
-  .game-card.b2b-alert { border-color: rgba(255,214,0,0.4); }
-
-  .game-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .matchup {
-    font-family: 'Syne', sans-serif;
-    font-size: 20px;
-    font-weight: 800;
-    letter-spacing: -0.5px;
-  }
-
-  .matchup .away { color: var(--text-dim); }
-  .matchup .sep  { color: var(--border); margin: 0 10px; }
-
-  .game-time {
-    font-size: 11px;
-    color: var(--text-dim);
-    background: rgba(255,255,255,0.04);
-    padding: 4px 10px;
-    border-radius: 4px;
-  }
-
-  .game-body {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 0;
-  }
-
-  .game-section {
-    padding: 16px 20px;
-    border-right: 1px solid var(--border);
-  }
-
-  .game-section:last-child { border-right: none; }
-
-  .gs-label {
-    font-size: 10px;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 10px;
-  }
-
-  /* Win probability bar */
-  .prob-bar-wrap {
-    margin-bottom: 8px;
-  }
-
-  .prob-bar-labels {
-    display: flex;
-    justify-content: space-between;
-    font-size: 11px;
-    color: var(--text-dim);
-    margin-bottom: 4px;
-  }
-
-  .prob-bar {
-    height: 6px;
-    background: var(--border);
-    border-radius: 3px;
-    overflow: hidden;
-  }
-
-  .prob-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--accent), var(--green));
-    border-radius: 3px;
-    transition: width 1s ease;
-  }
-
-  .prob-numbers {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 6px;
-  }
-
-  .prob-home {
-    font-family: 'Syne', sans-serif;
-    font-size: 24px;
-    font-weight: 800;
-    color: var(--accent);
-  }
-
-  .prob-away {
-    font-family: 'Syne', sans-serif;
-    font-size: 24px;
-    font-weight: 800;
-    color: var(--text-dim);
-  }
-
-  .model-row {
-    display: flex;
-    gap: 8px;
-    margin-top: 8px;
-    flex-wrap: wrap;
-  }
-
-  .model-tag {
-    font-size: 10px;
-    padding: 2px 7px;
-    border-radius: 3px;
-    background: rgba(255,255,255,0.05);
-    color: var(--text-dim);
-  }
-
-  .model-tag.consensus {
-    background: rgba(0,255,135,0.1);
-    color: var(--green);
-  }
-
-  /* Spread / Total */
-  .pred-big {
-    font-family: 'Syne', sans-serif;
-    font-size: 28px;
-    font-weight: 800;
-    color: var(--text);
-    line-height: 1;
-  }
-
-  .pred-sub {
-    font-size: 11px;
-    color: var(--text-dim);
-    margin-top: 4px;
-  }
-
-  /* Alerts */
-  .alert-row {
-    padding: 8px 20px;
-    background: rgba(255,214,0,0.06);
-    border-top: 1px solid rgba(255,214,0,0.2);
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-
-  .alert-badge {
-    font-size: 11px;
-    color: var(--yellow);
-    display: flex;
-    align-items: center;
-    gap: 5px;
-  }
-
-  /* ELO row */
-  .elo-row {
-    padding: 8px 20px 12px;
-    display: flex;
-    gap: 16px;
-    font-size: 11px;
-    color: var(--text-dim);
-    border-top: 1px solid var(--border);
-  }
-
-  .elo-val { color: var(--text); }
-
-  /* No games */
-  .no-games {
-    text-align: center;
-    padding: 60px 20px;
-    color: var(--text-dim);
-  }
-
-  .no-games-icon { font-size: 40px; margin-bottom: 12px; }
-  .no-games-text { font-size: 14px; }
-
-  /* Record tracker */
-  .record-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 32px;
-  }
-
-  .record-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 16px;
-    margin-top: 16px;
-  }
-
-  .rec-item { text-align: center; }
-  .rec-val {
-    font-family: 'Syne', sans-serif;
-    font-size: 26px;
-    font-weight: 800;
-    line-height: 1;
-  }
-
-  .rec-label {
-    font-size: 10px;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-top: 4px;
-  }
-
-  /* Error state */
-  .error-card {
-    background: rgba(255,61,90,0.08);
-    border: 1px solid rgba(255,61,90,0.3);
-    border-radius: 8px;
-    padding: 20px;
-    color: var(--red);
-    font-size: 13px;
-  }
-
-  /* Loading */
-  .loading {
-    text-align:center; padding:80px 20px; color:var(--text-dim);
-  }
-
-  .loading-spinner {
-    width:40px; height:40px;
-    border:2px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius:50%;
-    animation: spin 0.8s linear infinite;
-    margin: 0 auto 16px;
-  }
-
-  @keyframes spin { to { transform:rotate(360deg); } }
-
-  /* Refresh button */
-  .refresh-btn {
-    background: transparent;
-    border: 1px solid var(--accent);
-    color: var(--accent);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    padding: 6px 14px;
-    border-radius: 4px;
-    cursor: pointer;
-    letter-spacing: 1px;
-    transition: all 0.2s;
-  }
-
-  .refresh-btn:hover {
-    background: var(--accent);
-    color: var(--bg);
-  }
-
-  @media (max-width: 700px) {
-    .stats-bar { grid-template-columns: repeat(2, 1fr); }
-    .game-body { grid-template-columns: 1fr; }
-    .game-section { border-right: none; border-bottom: 1px solid var(--border); }
-    .record-grid { grid-template-columns: repeat(3, 1fr); }
-  }
+@media(max-width:700px){
+  .stats-bar{grid-template-columns:repeat(2,1fr)}
+  .game-body{grid-template-columns:1fr}
+  .gs{border-right:none;border-bottom:1px solid var(--border)}
+  .bt-grid{grid-template-columns:1fr}
+  .tabs{padding:0 16px}
+  .tab{padding:12px 12px}
+}
 </style>
 </head>
 <body>
 
 <header>
   <div class="logo">NBA<span>/</span>EDGE</div>
-  <div class="header-meta">
-    <div><span class="status-dot"></span><span id="last-updated">Loading...</span></div>
-    <div id="model-version" style="margin-top:2px;"></div>
+  <div class="header-right">
+    <div class="updated"><span class="dot"></span><span id="last-updated">Loading...</span></div>
+    <button class="refresh-btn" onclick="loadAll()">REFRESH</button>
   </div>
 </header>
 
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('picks')">PICKS</button>
+  <button class="tab" onclick="switchTab('backtest')">BACKTEST</button>
+</div>
+
+<!-- ═══════════════ PICKS TAB ═══════════════ -->
+<div id="tab-picks" class="tab-content active">
 <div class="main">
 
-  <!-- Model Stats -->
-  <div class="stats-bar" id="stats-bar">
+  <div class="stats-bar">
     <div class="stat-card"><div class="stat-label">LR AUC</div><div class="stat-value" id="lr-auc">--</div></div>
     <div class="stat-card"><div class="stat-label">XGB AUC</div><div class="stat-value" id="xgb-auc">--</div></div>
     <div class="stat-card"><div class="stat-label">Spread MAE</div><div class="stat-value yellow" id="sp-mae">--</div></div>
     <div class="stat-card"><div class="stat-label">Total MAE</div><div class="stat-value yellow" id="tot-mae">--</div></div>
   </div>
 
-  <!-- Record Tracker -->
-  <div id="record-section" style="display:none">
-    <div class="section-title">All-Time Record</div>
-    <div class="record-card">
-      <div class="record-grid">
-        <div class="rec-item"><div class="rec-val green" id="rec-wins">0</div><div class="rec-label">Wins</div></div>
-        <div class="rec-item"><div class="rec-val red"   id="rec-losses">0</div><div class="rec-label">Losses</div></div>
-        <div class="rec-item"><div class="rec-val"       id="rec-rate">-</div><div class="rec-label">Win Rate</div></div>
-        <div class="rec-item"><div class="rec-val accent" id="rec-edge">-</div><div class="rec-label">Avg Edge</div></div>
-        <div class="rec-item"><div class="rec-val yellow" id="rec-pending">0</div><div class="rec-label">Pending</div></div>
-      </div>
-    </div>
+  <div id="no-odds-notice" class="no-odds-notice" style="display:none">
+    Live sportsbook lines not available - add ODDS_API_KEY secret to enable line comparison and recommendations.
   </div>
 
-  <!-- Games -->
-  <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
-    <span id="games-title">TODAY'S GAMES</span>
-    <button class="refresh-btn" onclick="loadData()">REFRESH</button>
+  <div class="section-title">
+    <span id="games-title">TODAY'S PICKS</span>
   </div>
 
   <div class="games-grid" id="games-container">
-    <div class="loading">
-      <div class="loading-spinner"></div>
-      <div>Fetching predictions...</div>
-    </div>
+    <div class="loading"><div class="spinner"></div><div>Loading predictions...</div></div>
   </div>
 
 </div>
+</div>
 
+<!-- ═══════════════ BACKTEST TAB ═══════════════ -->
+<div id="tab-backtest" class="tab-content">
+<div class="main">
+
+  <div id="bt-container">
+    <div class="loading"><div class="spinner"></div><div>Loading backtest data...</div></div>
+  </div>
+
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
-const PREDICTIONS_URL = './predictions.json';
 
-async function loadData() {
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelector(`#tab-${name}`).classList.add('active');
+  event.target.classList.add('active');
+}
+
+async function loadAll() {
+  await Promise.all([loadPicks(), loadBacktest()]);
+}
+
+// ─── PICKS ───────────────────────────────────────────────
+
+async function loadPicks() {
   const container = document.getElementById('games-container');
-  container.innerHTML = '<div class="loading"><div class="loading-spinner"></div><div>Loading...</div></div>';
+  container.innerHTML = '<div class="loading"><div class="spinner"></div><div>Loading...</div></div>';
 
   try {
-    const res  = await fetch(PREDICTIONS_URL + '?t=' + Date.now());
+    const res  = await fetch('./predictions.json?t=' + Date.now());
     const data = await res.json();
 
-    // Header
     const d = new Date(data.generated_at);
     document.getElementById('last-updated').textContent =
       'Updated ' + d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) +
       ' at ' + d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-    document.getElementById('model-version').textContent =
-      (data.model_version || 'v1').toUpperCase();
 
-    // Model stats
     if (data.model_stats) {
       const ms = data.model_stats;
       document.getElementById('lr-auc').textContent  = ms.ml_lr_auc  || '--';
       document.getElementById('xgb-auc').textContent = ms.ml_xgb_auc || '--';
-      document.getElementById('sp-mae').textContent  = (ms.spread_mae || '--') + ' pts';
-      document.getElementById('tot-mae').textContent = (ms.totals_mae || '--') + ' pts';
+      document.getElementById('sp-mae').textContent  = (ms.spread_mae||'--') + ' pts';
+      document.getElementById('tot-mae').textContent = (ms.totals_mae||'--') + ' pts';
     }
 
-    // Record
-    if (data.bet_log_summary && data.bet_log_summary.total_bets > 0) {
-      const s = data.bet_log_summary;
-      document.getElementById('record-section').style.display = 'block';
-      document.getElementById('rec-wins').textContent    = s.wins;
-      document.getElementById('rec-losses').textContent  = s.losses;
-      document.getElementById('rec-rate').textContent    = (s.win_rate*100).toFixed(1) + '%';
-      document.getElementById('rec-edge').textContent    = (s.avg_edge*100 >= 0 ? '+' : '') + (s.avg_edge*100).toFixed(1) + '%';
-      document.getElementById('rec-pending').textContent = s.pending_bets || 0;
+    if (!data.has_live_odds) {
+      document.getElementById('no-odds-notice').style.display = 'block';
     }
 
-    // Games
     const games = data.games || [];
+    document.getElementById('games-title').textContent =
+      games.length ? `TODAY'S PICKS (${games.length} games)` : "NO GAMES TODAY";
+
     if (!games.length) {
-      container.innerHTML = `
-        <div class="no-games">
-          <div class="no-games-icon">🏀</div>
-          <div class="no-games-text">No games scheduled today</div>
-        </div>`;
-      document.getElementById('games-title').textContent =
-        'NO GAMES TODAY';
+      container.innerHTML = '<div class="no-data">No games scheduled today. Check back later.</div>';
       return;
     }
 
-    document.getElementById('games-title').textContent =
-      `TODAY'S GAMES (${games.length})`;
-
-    container.innerHTML = games.map(g => renderGame(g)).join('');
-
-    // Animate probability bars
+    container.innerHTML = games.map(renderGame).join('');
     requestAnimationFrame(() => {
       document.querySelectorAll('.prob-fill').forEach(el => {
-        el.style.width = el.dataset.width + '%';
+        el.style.width = el.dataset.w + '%';
       });
     });
 
   } catch(e) {
-    container.innerHTML = `
-      <div class="error-card">
-        Could not load predictions.json — make sure the model has run at least once.<br>
-        <small style="opacity:0.6;margin-top:6px;display:block">${e.message}</small>
-      </div>`;
+    container.innerHTML = `<div style="padding:20px;color:var(--red);font-size:13px">
+      Could not load predictions.json. Run the model first.<br>
+      <small style="opacity:0.5">${e.message}</small></div>`;
   }
 }
 
 function renderGame(g) {
-  if (g.error) {
-    return `<div class="game-card" style="padding:20px;color:var(--red)">
-      ${g.matchup} — Error: ${g.error}</div>`;
-  }
+  if (g.error) return `<div class="game-card" style="padding:18px;color:var(--red)">${g.matchup}: ${g.error}</div>`;
 
-  const ml  = g.moneyline || {};
-  const sp  = g.spread    || {};
-  const tot = g.totals    || {};
-  const elo = g.elo       || {};
+  const ml   = g.moneyline  || {};
+  const sp   = g.spread     || {};
+  const tot  = g.totals     || {};
+  const elo  = g.elo        || {};
+  const recs = g.recommendations || [];
+  const book = g.book_odds  || {};
 
-  const hwp  = ((ml.home_win_prob || 0.5) * 100).toFixed(1);
-  const awp  = ((ml.away_win_prob || 0.5) * 100).toFixed(1);
-  const hasBet   = (g.bets_flagged || []).length > 0;
-  const hasAlert = (g.fatigue_alert || []).length > 0;
+  const hwp = ((ml.home_win_prob||0.5)*100).toFixed(1);
+  const awp = ((ml.away_win_prob||0.5)*100).toFixed(1);
+  const hasRec   = recs.length > 0;
+  const hasAlert = (g.fatigue_alert||[]).length > 0;
 
-  const consensus = ml.model_consensus
-    ? '<span class="model-tag consensus">MODELS AGREE</span>'
-    : '<span class="model-tag">MODELS SPLIT</span>';
+  const margin  = sp.predicted_margin !== undefined
+    ? (sp.predicted_margin>=0?'+':'') + sp.predicted_margin.toFixed(1) : '--';
+  const total   = tot.predicted_total || '--';
 
-  const alertHtml = hasAlert ? `
-    <div class="alert-row">
-      ${g.fatigue_alert.map(a => `<div class="alert-badge">&#9888; ${a}</div>`).join('')}
+  // Book line comparison
+  const bookML = book.h2h_home
+    ? `<div style="font-size:10px;color:var(--dim);margin-top:4px">Book: ${fmtOdds(book.h2h_home)} / ${fmtOdds(book.h2h_away)}</div>` : '';
+  const bookSP = book.spread_line !== undefined && book.spread_line !== null
+    ? `<div class="pred-vs">Book line: ${book.spread_line>0?'+':''}${book.spread_line}</div>` : '';
+  const bookTOT = book.total_line
+    ? `<div class="pred-vs">Book line: ${book.total_line}</div>` : '';
+
+  const recsHtml = hasRec ? `
+    <div class="recs-section">
+      ${recs.map(r => `
+        <div class="rec-row">
+          <div class="rec-grade grade-${r.grade}">${r.grade}</div>
+          <div class="rec-type">${r.type}</div>
+          <div class="rec-side">${r.side}</div>
+          <div class="rec-edge">+${(r.edge*100).toFixed(1)}% edge</div>
+          <div class="rec-kelly">${r.kelly_pct}% Kelly</div>
+          <div class="rec-reason">${r.reason}</div>
+        </div>
+      `).join('')}
     </div>` : '';
 
-  const margin = sp.predicted_margin !== undefined
-    ? (sp.predicted_margin >= 0 ? '+' : '') + sp.predicted_margin.toFixed(1)
-    : '--';
-
-  const total = tot.predicted_total || '--';
+  const alertHtml = hasAlert ? `
+    <div style="padding:7px 18px;background:rgba(255,214,0,0.06);border-top:1px solid rgba(255,214,0,0.2);font-size:11px;color:var(--yellow)">
+      ${g.fatigue_alert.map(a=>`&#9888; ${a}`).join('  ')}
+    </div>` : '';
 
   return `
-  <div class="game-card ${hasBet ? 'has-bet' : ''} ${hasAlert ? 'b2b-alert' : ''}">
+  <div class="game-card ${hasRec?'has-rec':''} ${hasAlert?'b2b':''}">
     <div class="game-header">
       <div class="matchup">
-        <span>${g.home_team || g.matchup.split(' vs ')[0]}</span>
-        <span class="sep">vs</span>
-        <span class="away">${g.away_team || g.matchup.split(' vs ')[1]}</span>
+        <span>${g.home_team||'HOME'}</span>
+        <span class="vs">vs</span>
+        <span class="away">${g.away_team||'AWAY'}</span>
       </div>
-      <div style="display:flex;align-items:center;gap:10px">
-        ${hasBet ? '<span style="font-size:11px;color:var(--green);letter-spacing:1px">EDGE FOUND</span>' : ''}
-        <div class="game-time">${g.game_time || 'Scheduled'}</div>
+      <div class="header-badges">
+        ${hasRec ? '<span class="badge rec">EDGE FOUND</span>' : ''}
+        ${hasAlert ? '<span class="badge b2b">B2B</span>' : ''}
+        <span class="badge time">${g.game_time||'TBD'}</span>
       </div>
     </div>
 
     <div class="game-body">
-
-      <div class="game-section">
-        <div class="gs-label">Moneyline</div>
-        <div class="prob-bar-wrap">
-          <div class="prob-bar-labels">
-            <span>${g.home_team || 'HOME'}</span>
-            <span>${g.away_team || 'AWAY'}</span>
-          </div>
-          <div class="prob-bar">
-            <div class="prob-fill" data-width="${hwp}" style="width:0%"></div>
-          </div>
+      <div class="gs">
+        <div class="gs-label">Win Probability</div>
+        <div style="font-size:10px;color:var(--dim);display:flex;justify-content:space-between;margin-bottom:3px">
+          <span>${g.home_team||'HOME'}</span><span>${g.away_team||'AWAY'}</span>
         </div>
-        <div class="prob-numbers">
-          <div class="prob-home">${hwp}%</div>
-          <div class="prob-away">${awp}%</div>
+        <div class="prob-bar"><div class="prob-fill" data-w="${hwp}" style="width:0%"></div></div>
+        <div class="prob-row">
+          <div class="prob-h">${hwp}%</div>
+          <div class="prob-a">${awp}%</div>
         </div>
-        <div class="model-row">
-          <span class="model-tag">LR ${((ml.lr_prob||0)*100).toFixed(0)}%</span>
-          <span class="model-tag">XGB ${((ml.xgb_prob||0)*100).toFixed(0)}%</span>
-          <span class="model-tag">ELO ${((ml.elo_prob||0)*100).toFixed(0)}%</span>
-          ${consensus}
+        ${bookML}
+        <div class="model-tags">
+          <span class="mtag">LR ${((ml.lr_prob||0)*100).toFixed(0)}%</span>
+          <span class="mtag">XGB ${((ml.xgb_prob||0)*100).toFixed(0)}%</span>
+          <span class="mtag">ELO ${((ml.elo_prob||0)*100).toFixed(0)}%</span>
+          <span class="mtag ${ml.model_consensus?'agree':''}">${ml.model_consensus?'AGREE':'SPLIT'}</span>
         </div>
       </div>
 
-      <div class="game-section">
+      <div class="gs">
         <div class="gs-label">Spread (Home)</div>
         <div class="pred-big">${margin}</div>
-        <div class="pred-sub">MAE &plusmn;${sp.model_mae || '--'} pts</div>
+        ${bookSP}
+        <div class="pred-sub">MAE &plusmn;${sp.model_mae||'--'} pts</div>
       </div>
 
-      <div class="game-section">
+      <div class="gs">
         <div class="gs-label">Total Points</div>
         <div class="pred-big">${total}</div>
-        <div class="pred-sub">MAE &plusmn;${tot.model_mae || '--'} pts</div>
+        ${bookTOT}
+        <div class="pred-sub">MAE &plusmn;${tot.model_mae||'--'} pts</div>
       </div>
-
     </div>
 
+    ${recsHtml}
     ${alertHtml}
 
     <div class="elo-row">
-      <span>ELO: <span class="elo-val">${elo.home || '--'}</span> vs <span class="elo-val">${elo.away || '--'}</span></span>
-      <span>DIFF: <span class="elo-val">${elo.diff >= 0 ? '+' : ''}${elo.diff || '--'}</span></span>
+      <span>ELO <span class="elo-v">${elo.home||'--'}</span> vs <span class="elo-v">${elo.away||'--'}</span></span>
+      <span>DIFF <span class="elo-v">${elo.diff>=0?'+':''}${elo.diff||'--'}</span></span>
     </div>
   </div>`;
 }
 
-loadData();
+function fmtOdds(o) {
+  if (!o) return '--';
+  return o > 0 ? '+'+o : String(o);
+}
+
+// ─── BACKTEST ────────────────────────────────────────────
+
+let chartInstance = null;
+
+async function loadBacktest() {
+  const container = document.getElementById('bt-container');
+
+  try {
+    const res  = await fetch('./backtest.json?t=' + Date.now());
+    const bt   = await res.json();
+
+    const ml  = bt.ml     || {};
+    const sp  = bt.spread || {};
+    const tot = bt.totals || {};
+    const cal = bt.calibration || [];
+    const mon = bt.monthly || [];
+
+    const roi_class = ml.roi_pct >= 0 ? 'green' : 'red';
+    const pnl_class = ml.pnl >= 0 ? 'green' : 'red';
+    const acc_class = ml.accuracy >= 0.55 ? 'green' : ml.accuracy >= 0.52 ? 'yellow' : 'red';
+
+    container.innerHTML = `
+      <div class="bt-grid">
+        <div class="bt-card">
+          <div class="bt-title">Moneyline Results</div>
+          <div class="bt-big ${acc_class}">${(ml.accuracy*100).toFixed(1)}%</div>
+          <div class="bt-sub">prediction accuracy</div>
+          <div style="margin-top:14px">
+            <div class="bt-row"><span class="bt-key">Test games</span><span class="bt-val">${bt.test_games}</span></div>
+            <div class="bt-row"><span class="bt-key">Train games</span><span class="bt-val">${bt.train_games}</span></div>
+            <div class="bt-row"><span class="bt-key">Bets placed</span><span class="bt-val">${ml.bets_placed}</span></div>
+            <div class="bt-row"><span class="bt-key">Won / Lost</span><span class="bt-val">${ml.bets_won} / ${ml.bets_placed - ml.bets_won}</span></div>
+            <div class="bt-row"><span class="bt-key">Win rate</span><span class="bt-val">${(ml.win_rate*100).toFixed(1)}%</span></div>
+          </div>
+        </div>
+
+        <div class="bt-card">
+          <div class="bt-title">Simulated P&amp;L ($100 flat bets)</div>
+          <div class="bt-big ${pnl_class}">${ml.pnl >= 0 ? '+' : ''}$${ml.pnl}</div>
+          <div class="bt-sub">on $1,000 starting bankroll</div>
+          <div style="margin-top:14px">
+            <div class="bt-row"><span class="bt-key">ROI</span><span class="bt-val ${roi_class}">${ml.roi_pct >= 0?'+':''}${ml.roi_pct}%</span></div>
+            <div class="bt-row"><span class="bt-key">End bankroll</span><span class="bt-val">$${ml.ending_bankroll}</span></div>
+            <div class="bt-row"><span class="bt-key">Break-even rate</span><span class="bt-val">52.4%</span></div>
+          </div>
+        </div>
+
+        <div class="bt-card">
+          <div class="bt-title">Spread &amp; Totals</div>
+          <div class="bt-big yellow">${sp.mae}</div>
+          <div class="bt-sub">spread MAE (points)</div>
+          <div style="margin-top:14px">
+            <div class="bt-row"><span class="bt-key">Spread within 5pts</span><span class="bt-val">${(sp.within_5*100).toFixed(0)}%</span></div>
+            <div class="bt-row"><span class="bt-key">Spread within 10pts</span><span class="bt-val">${(sp.within_10*100).toFixed(0)}%</span></div>
+            <div class="bt-row"><span class="bt-key">Total MAE</span><span class="bt-val">${tot.mae} pts</span></div>
+            <div class="bt-row"><span class="bt-key">Total within 5pts</span><span class="bt-val">${(tot.within_5*100).toFixed(0)}%</span></div>
+            <div class="bt-row"><span class="bt-key">Total within 10pts</span><span class="bt-val">${(tot.within_10*100).toFixed(0)}%</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bankroll chart -->
+      <div class="chart-wrap">
+        <div class="chart-title">Simulated Bankroll History</div>
+        <canvas id="bankroll-chart" height="160"></canvas>
+      </div>
+
+      <!-- Calibration -->
+      <div class="section-title" style="margin-top:24px">Model Calibration</div>
+      <div class="bt-card" style="margin-bottom:20px">
+        <div class="bt-title">Does predicted probability match actual win rate?</div>
+        <table class="cal-table">
+          <thead><tr>
+            <th>Predicted Range</th>
+            <th>Avg Predicted</th>
+            <th>Actual Rate</th>
+            <th>Diff</th>
+            <th>Samples</th>
+            <th style="width:130px">Visual</th>
+          </tr></thead>
+          <tbody>
+            ${cal.map(c => {
+              const diff = c.diff;
+              const cls  = Math.abs(diff) < 0.03 ? 'cal-good' : 'cal-bad';
+              const fill = Math.min(100, c.actual * 200);
+              return `<tr>
+                <td>${c.bucket}</td>
+                <td>${(c.predicted*100).toFixed(1)}%</td>
+                <td>${(c.actual*100).toFixed(1)}%</td>
+                <td class="${cls}">${diff >= 0 ? '+' : ''}${(diff*100).toFixed(1)}%</td>
+                <td>${c.n}</td>
+                <td class="cal-bar-wrap"><div class="cal-bar-bg"><div class="cal-bar-fill" style="width:${fill}%"></div></div></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Monthly -->
+      <div class="section-title">Accuracy by Month</div>
+      <div class="bt-card">
+        <table class="month-table">
+          <thead><tr>
+            <th>Month</th><th>Games</th><th>ML Accuracy</th><th>Avg Confidence</th>
+          </tr></thead>
+          <tbody>
+            ${mon.map(m => {
+              const cls = m.accuracy >= 0.55 ? 'style="color:var(--green)"'
+                        : m.accuracy >= 0.52 ? 'style="color:var(--yellow)"'
+                        : 'style="color:var(--red)"';
+              return `<tr>
+                <td>${m.month}</td>
+                <td>${m.games}</td>
+                <td ${cls}>${(m.accuracy*100).toFixed(1)}%</td>
+                <td>${(m.avg_prob*100).toFixed(1)}%</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    // Draw bankroll chart
+    const history = ml.bankroll_history || [1000];
+    if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+    const ctx = document.getElementById('bankroll-chart').getContext('2d');
+    chartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: history.map((_,i) => i===0?'Start':`Bet ${i}`),
+        datasets: [{
+          data:            history,
+          borderColor:     history[history.length-1] >= 1000 ? '#00ff87' : '#ff3d5a',
+          backgroundColor: history[history.length-1] >= 1000
+            ? 'rgba(0,255,135,0.05)' : 'rgba(255,61,90,0.05)',
+          borderWidth:     2,
+          pointRadius:     0,
+          tension:         0.3,
+          fill:            true,
+        }]
+      },
+      options: {
+        responsive:true,
+        plugins:{legend:{display:false}},
+        scales:{
+          x:{display:false},
+          y:{
+            grid:   {color:'rgba(255,255,255,0.04)'},
+            ticks:  {color:'#718096',font:{size:10},callback:v=>'$'+v},
+            border: {display:false},
+          }
+        }
+      }
+    });
+
+  } catch(e) {
+    container.innerHTML = `<div class="no-data">
+      Backtest data not available yet.<br>
+      <small style="opacity:0.5;margin-top:6px;display:block">Run the model first to generate backtest.json</small>
+    </div>`;
+  }
+}
+
+loadAll();
 </script>
 </body>
 </html>
