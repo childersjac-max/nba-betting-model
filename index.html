@@ -6,11 +6,11 @@
 <title>NBA Edge Model</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root {
-  --bg:#090b0f; --surface:#0f1318; --surface2:#141920;
-  --border:#1e2530; --accent:#00e5ff; --green:#00ff87;
-  --red:#ff3d5a; --yellow:#ffd600; --purple:#b388ff;
-  --muted:#4a5568; --text:#e2e8f0; --dim:#718096;
+:root{
+  --bg:#090b0f;--surface:#0f1318;--surface2:#141920;
+  --border:#1e2530;--accent:#00e5ff;--green:#00ff87;
+  --red:#ff3d5a;--yellow:#ffd600;--purple:#b388ff;
+  --muted:#4a5568;--text:#e2e8f0;--dim:#718096;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;min-height:100vh;overflow-x:hidden}
@@ -24,45 +24,44 @@ header{padding:18px 32px;border-bottom:1px solid var(--border);display:flex;alig
 .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 
-/* Tabs */
-.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);background:var(--surface);padding:0 32px}
-.tab{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:1px;text-transform:uppercase;padding:12px 20px;cursor:pointer;color:var(--dim);border-bottom:2px solid transparent;transition:all 0.2s;background:none;border-top:none;border-left:none;border-right:none}
+.tabs{display:flex;border-bottom:1px solid var(--border);background:var(--surface);padding:0 32px}
+.tab{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;padding:12px 18px;cursor:pointer;color:var(--dim);border-bottom:2px solid transparent;transition:all 0.2s;background:none;border-top:none;border-left:none;border-right:none}
 .tab:hover{color:var(--text)}
 .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
 
-.main{max-width:1100px;margin:0 auto;padding:28px 24px}
+.main{max-width:1140px;margin:0 auto;padding:24px 20px}
 .tab-content{display:none}
 .tab-content.active{display:block}
 
-/* Stats bar */
-.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px}
-.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center}
-.stat-label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
-.stat-value{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:var(--accent)}
-.stat-value.green{color:var(--green)}
-.stat-value.yellow{color:var(--yellow)}
-.stat-value.red{color:var(--red)}
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center}
+.stat-label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px}
+.stat-value{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;color:var(--accent)}
+.stat-value.green{color:var(--green)}.stat-value.yellow{color:var(--yellow)}.stat-value.red{color:var(--red)}
 
-.section-title{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--dim);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.section-title{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--dim);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
 
-/* Game cards */
-.games-grid{display:grid;gap:14px;margin-bottom:36px}
+/* Game Cards */
+.games-grid{display:grid;gap:14px;margin-bottom:32px}
 .game-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color 0.2s}
-.game-card:hover{border-color:rgba(255,255,255,0.15)}
-.game-card.has-rec{border-color:rgba(0,255,135,0.35)}
-.game-card.b2b{border-color:rgba(255,214,0,0.35)}
+.game-card:hover{border-color:rgba(255,255,255,0.12)}
+.game-card.has-rec{border-color:rgba(0,255,135,0.4)}
+.game-card.b2b{border-color:rgba(255,214,0,0.4)}
+.game-card.star-out{border-color:rgba(255,61,90,0.4)}
 
 .game-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
 .matchup{font-family:'Syne',sans-serif;font-size:19px;font-weight:800;letter-spacing:-0.5px}
 .matchup .vs{color:var(--border);margin:0 8px}
 .matchup .away{color:var(--dim)}
-.header-badges{display:flex;align-items:center;gap:8px}
-.badge{font-size:10px;letter-spacing:1px;padding:3px 9px;border-radius:3px}
+.hbadges{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.badge{font-size:10px;letter-spacing:1px;padding:3px 8px;border-radius:3px}
 .badge.rec{background:rgba(0,255,135,0.12);color:var(--green);border:1px solid rgba(0,255,135,0.3)}
 .badge.b2b{background:rgba(255,214,0,0.1);color:var(--yellow);border:1px solid rgba(255,214,0,0.3)}
+.badge.out{background:rgba(255,61,90,0.1);color:var(--red);border:1px solid rgba(255,61,90,0.3)}
 .badge.time{background:rgba(255,255,255,0.04);color:var(--dim);border:1px solid var(--border)}
+.badge.player{background:rgba(179,136,255,0.1);color:var(--purple);border:1px solid rgba(179,136,255,0.3)}
 
-.game-body{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:0}
+.game-body{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:0}
 .gs{padding:14px 18px;border-right:1px solid var(--border)}
 .gs:last-child{border-right:none}
 .gs-label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
@@ -72,69 +71,114 @@ header{padding:18px 32px;border-bottom:1px solid var(--border);display:flex;alig
 .prob-row{display:flex;justify-content:space-between;margin-top:6px}
 .prob-h{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--accent)}
 .prob-a{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--dim)}
-.model-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.model-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
 .mtag{font-size:10px;padding:2px 6px;border-radius:3px;background:rgba(255,255,255,0.04);color:var(--dim)}
 .mtag.agree{background:rgba(0,255,135,0.08);color:var(--green)}
 
-.pred-big{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;line-height:1}
+.pred-big{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;line-height:1}
 .pred-vs{font-size:11px;color:var(--dim);margin-top:3px}
-.pred-sub{font-size:10px;color:var(--muted);margin-top:4px}
+.pred-sub{font-size:10px;color:var(--muted);margin-top:3px}
 
-/* Recommendations */
-.recs-section{padding:12px 18px;border-top:1px solid var(--border);background:rgba(0,255,135,0.03)}
-.rec-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
-.rec-row:last-child{border-bottom:none}
-.rec-grade{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;width:22px;text-align:center}
-.grade-A{color:var(--green)}
-.grade-B{color:var(--yellow)}
-.grade-C{color:var(--dim)}
+/* Recommendations with factor attribution */
+.recs-section{padding:12px 18px;border-top:1px solid var(--border);background:rgba(0,255,135,0.025)}
+.rec-block{padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.rec-block:last-child{border-bottom:none}
+.rec-header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.rec-grade{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;width:22px}
+.grade-A{color:var(--green)}.grade-B{color:var(--yellow)}.grade-C{color:var(--dim)}
 .rec-type{font-size:10px;letter-spacing:1px;padding:2px 7px;border-radius:3px;background:rgba(0,229,255,0.1);color:var(--accent)}
 .rec-side{font-family:'Syne',sans-serif;font-size:13px;font-weight:700}
 .rec-edge{font-size:11px;color:var(--green)}
-.rec-reason{font-size:10px;color:var(--dim);flex:1;text-align:right}
-.rec-kelly{font-size:10px;color:var(--yellow)}
+.rec-kelly{font-size:11px;color:var(--yellow)}
+.rec-reason{font-size:11px;color:var(--dim);margin-bottom:5px}
+.factors-wrap{display:flex;flex-wrap:wrap;gap:5px}
+.factor-tag{font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid;display:flex;align-items:center;gap:4px}
+.factor-tag.pos{background:rgba(0,255,135,0.06);border-color:rgba(0,255,135,0.2);color:var(--green)}
+.factor-tag.neg{background:rgba(255,61,90,0.06);border-color:rgba(255,61,90,0.2);color:var(--red)}
+
+/* Injuries section */
+.inj-section{padding:10px 18px;border-top:1px solid var(--border);background:rgba(255,61,90,0.025)}
+.inj-row{display:flex;gap:8px;align-items:flex-start;margin-bottom:4px;font-size:11px}
+.inj-row:last-child{margin-bottom:0}
+.inj-status{font-weight:600;min-width:90px}
+.inj-status.out{color:var(--red)}.inj-status.q{color:var(--yellow)}
+.inj-names{color:var(--dim)}
+
+/* Player stats section */
+.player-section{padding:10px 18px;border-top:1px solid var(--border)}
+.player-teams{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.player-team-title{font-size:10px;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+.player-row{display:grid;grid-template-columns:1fr 28px 28px 28px 40px;gap:4px;font-size:10px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.03);color:var(--dim)}
+.player-row:last-child{border-bottom:none}
+.player-row .pname{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.player-row .pval{text-align:right}
+.player-header{display:grid;grid-template-columns:1fr 28px 28px 28px 40px;gap:4px;font-size:9px;color:var(--muted);padding-bottom:3px;border-bottom:1px solid var(--border);letter-spacing:0.5px;margin-bottom:2px}
+.team-stats-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04)}
+.tstat{font-size:10px;color:var(--dim)}.tstat span{color:var(--text);margin-left:3px}
 
 .elo-row{padding:7px 18px;font-size:11px;color:var(--dim);border-top:1px solid var(--border);display:flex;gap:14px}
 .elo-v{color:var(--text)}
 
-/* No live odds notice */
-.no-odds-notice{background:rgba(255,214,0,0.06);border:1px solid rgba(255,214,0,0.2);border-radius:6px;padding:10px 14px;font-size:11px;color:var(--yellow);margin-bottom:20px}
+.alert-row{padding:8px 18px;background:rgba(255,214,0,0.05);border-top:1px solid rgba(255,214,0,0.2);font-size:11px;color:var(--yellow)}
 
-/* ─── BACKTEST TAB ─── */
-.bt-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px}
+/* Backtest Tab */
+.bt-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
 .bt-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px}
 .bt-title{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
-.bt-big{font-family:'Syne',sans-serif;font-size:32px;font-weight:800;line-height:1}
+.bt-big{font-family:'Syne',sans-serif;font-size:30px;font-weight:800;line-height:1}
 .bt-sub{font-size:11px;color:var(--dim);margin-top:4px}
 .bt-row{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border)}
 .bt-row:last-child{border-bottom:none}
-.bt-key{color:var(--dim)}
-.bt-val{color:var(--text);font-weight:600}
+.bt-key{color:var(--dim)}.bt-val{color:var(--text);font-weight:600}
 
-/* Bankroll chart */
 .chart-wrap{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:20px}
 .chart-title{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px}
 canvas{width:100%!important;max-height:180px}
 
-/* Calibration table */
+/* Feature importance */
+.fi-bar-wrap{margin-bottom:6px}
+.fi-label{font-size:11px;color:var(--text);margin-bottom:3px;display:flex;justify-content:space-between}
+.fi-bar-bg{height:5px;background:var(--border);border-radius:3px}
+.fi-bar-fill{height:5px;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--green))}
+
 .cal-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
 .cal-table th{text-align:left;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;padding:6px 10px;border-bottom:1px solid var(--border)}
 .cal-table td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,0.03)}
-.cal-bar-wrap{width:120px}
-.cal-bar-bg{height:4px;background:var(--border);border-radius:2px}
-.cal-bar-fill{height:4px;border-radius:2px;background:var(--accent)}
-.cal-good{color:var(--green)}
-.cal-bad{color:var(--red)}
+.cal-good{color:var(--green)}.cal-bad{color:var(--red)}
 
-/* Monthly table */
 .month-table{width:100%;border-collapse:collapse;font-size:12px}
 .month-table th{text-align:left;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;padding:6px 10px;border-bottom:1px solid var(--border)}
 .month-table td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,0.03)}
 
-.loading{text-align:center;padding:60px 20px;color:var(--dim)}
-.spinner{width:36px;height:36px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 14px}
-@keyframes spin{to{transform:rotate(360deg)}}
+/* Strategy Tab */
+.prose{font-size:12px;line-height:1.8;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px 22px;margin-bottom:20px}
+.strategy-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+.strategy-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
+.strategy-card.full{grid-column:1/-1}
+.sc-title{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.rule{display:flex;align-items:flex-start;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.rule:last-child{border-bottom:none}
+.rule-num{font-family:'Syne',sans-serif;font-weight:800;color:var(--accent);min-width:20px;font-size:14px}
+.rule-text{font-size:12px;color:var(--text)}.rule-sub{font-size:10px;color:var(--dim);margin-top:2px}
+.today-rec{background:rgba(0,255,135,0.03);border:1px solid rgba(0,255,135,0.15);border-radius:6px;padding:12px 14px;margin-bottom:10px}
+.today-rec.warn{background:rgba(255,214,0,0.03);border-color:rgba(255,214,0,0.2)}
+.today-rec.skip{background:rgba(255,255,255,0.01);border-color:var(--border)}
+.tr-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.tr-game{font-family:'Syne',sans-serif;font-size:14px;font-weight:700}
+.grade-pill-A{background:rgba(0,255,135,0.15);color:var(--green);padding:2px 10px;border-radius:3px;font-size:11px;font-family:'Syne',sans-serif;font-weight:800}
+.grade-pill-B{background:rgba(255,214,0,0.12);color:var(--yellow);padding:2px 10px;border-radius:3px;font-size:11px;font-family:'Syne',sans-serif;font-weight:800}
+.grade-pill-PASS{background:rgba(255,255,255,0.04);color:var(--muted);padding:2px 10px;border-radius:3px;font-size:11px;font-family:'Syne',sans-serif;font-weight:800}
+.tr-action{font-size:12px;color:var(--text);margin-bottom:3px}
+.tr-rationale{font-size:11px;color:var(--dim)}
+.insight-list{list-style:none;padding:0}
+.insight-list li{padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:12px;display:flex;align-items:flex-start;gap:8px}
+.insight-list li:last-child{border-bottom:none}
+.ins-icon{min-width:14px;color:var(--accent)}
 
+.no-odds-notice{background:rgba(255,214,0,0.05);border:1px solid rgba(255,214,0,0.2);border-radius:6px;padding:9px 14px;font-size:11px;color:var(--yellow);margin-bottom:18px}
+.loading{text-align:center;padding:60px 20px;color:var(--dim)}
+.spinner{width:34px;height:34px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 14px}
+@keyframes spin{to{transform:rotate(360deg)}}
 .refresh-btn{background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:10px;padding:5px 12px;border-radius:4px;cursor:pointer;letter-spacing:1px;transition:all 0.2s}
 .refresh-btn:hover{background:var(--accent);color:var(--bg)}
 .no-data{text-align:center;padding:40px;color:var(--dim);font-size:13px}
@@ -143,43 +187,11 @@ canvas{width:100%!important;max-height:180px}
   .stats-bar{grid-template-columns:repeat(2,1fr)}
   .game-body{grid-template-columns:1fr}
   .gs{border-right:none;border-bottom:1px solid var(--border)}
-  .bt-grid{grid-template-columns:1fr}
-  .tabs{padding:0 16px}
-  .tab{padding:12px 12px}
+  .bt-grid,.strategy-grid,.player-teams{grid-template-columns:1fr}
+  .strategy-card.full{grid-column:1}
+  .tabs{padding:0 12px}
+  .tab{padding:10px 10px;font-size:10px}
 }
-
-/* Strategy tab */
-.prose{font-size:13px;line-height:1.8;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px 24px;margin-bottom:20px}
-.prose p{margin-bottom:10px}
-.prose p:last-child{margin-bottom:0}
-.strategy-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
-.strategy-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px}
-.strategy-card.full{grid-column:1/-1}
-.sc-title{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
-.sc-body{font-size:12px;line-height:1.7;color:var(--text)}
-.sc-body .rule{display:flex;align-items:flex-start;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
-.sc-body .rule:last-child{border-bottom:none}
-.rule-num{font-family:'Syne',sans-serif;font-weight:800;color:var(--accent);min-width:22px;font-size:14px}
-.rule-text{color:var(--text)}
-.rule-sub{font-size:11px;color:var(--dim);margin-top:2px}
-.today-rec{background:rgba(0,255,135,0.04);border:1px solid rgba(0,255,135,0.2);border-radius:6px;padding:12px 16px;margin-bottom:10px}
-.today-rec.warn{background:rgba(255,214,0,0.04);border-color:rgba(255,214,0,0.2)}
-.today-rec.skip{background:rgba(255,255,255,0.02);border-color:var(--border)}
-.tr-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
-.tr-game{font-family:'Syne',sans-serif;font-size:14px;font-weight:700}
-.tr-grade{font-family:'Syne',sans-serif;font-size:12px;font-weight:800;padding:2px 10px;border-radius:3px}
-.grade-pill-A{background:rgba(0,255,135,0.15);color:var(--green)}
-.grade-pill-B{background:rgba(255,214,0,0.12);color:var(--yellow)}
-.grade-pill-C{background:rgba(255,255,255,0.05);color:var(--dim)}
-.grade-pill-PASS{background:rgba(255,255,255,0.03);color:var(--muted)}
-.tr-action{font-size:12px;color:var(--text);margin-bottom:4px}
-.tr-rationale{font-size:11px;color:var(--dim)}
-.insight-list{list-style:none;padding:0}
-.insight-list li{padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:12px;color:var(--text);display:flex;align-items:flex-start;gap:8px}
-.insight-list li:last-child{border-bottom:none}
-.ins-icon{min-width:16px;color:var(--accent)}
-@media(max-width:700px){.strategy-grid{grid-template-columns:1fr}}
-
 </style>
 </head>
 <body>
@@ -193,50 +205,40 @@ canvas{width:100%!important;max-height:180px}
 </header>
 
 <div class="tabs">
-  <button class="tab active" onclick="switchTab('picks')">PICKS</button>
-  <button class="tab" onclick="switchTab('backtest')">BACKTEST</button>
-  <button class="tab" onclick="switchTab('strategy')">STRATEGY</button>
+  <button class="tab active" onclick="switchTab('picks',this)">PICKS</button>
+  <button class="tab" onclick="switchTab('backtest',this)">BACKTEST</button>
+  <button class="tab" onclick="switchTab('strategy',this)">STRATEGY</button>
 </div>
 
-<!-- ═══════════════ PICKS TAB ═══════════════ -->
+<!-- ═══ PICKS ═══ -->
 <div id="tab-picks" class="tab-content active">
 <div class="main">
-
   <div class="stats-bar">
     <div class="stat-card"><div class="stat-label">LR AUC</div><div class="stat-value" id="lr-auc">--</div></div>
     <div class="stat-card"><div class="stat-label">XGB AUC</div><div class="stat-value" id="xgb-auc">--</div></div>
     <div class="stat-card"><div class="stat-label">Spread MAE</div><div class="stat-value yellow" id="sp-mae">--</div></div>
     <div class="stat-card"><div class="stat-label">Total MAE</div><div class="stat-value yellow" id="tot-mae">--</div></div>
   </div>
-
   <div id="no-odds-notice" class="no-odds-notice" style="display:none">
-    Live sportsbook lines not available - add ODDS_API_KEY secret to enable line comparison and recommendations.
+    No live sportsbook lines — add ODDS_API_KEY secret to enable line comparison and bet recommendations.
   </div>
-
-  <div class="section-title">
-    <span id="games-title">TODAY'S PICKS</span>
-  </div>
-
+  <div class="section-title"><span id="games-title">TODAY'S PICKS</span></div>
   <div class="games-grid" id="games-container">
     <div class="loading"><div class="spinner"></div><div>Loading predictions...</div></div>
   </div>
-
 </div>
 </div>
 
-<!-- ═══════════════ BACKTEST TAB ═══════════════ -->
+<!-- ═══ BACKTEST ═══ -->
 <div id="tab-backtest" class="tab-content">
 <div class="main">
-
   <div id="bt-container">
-    <div class="loading"><div class="spinner"></div><div>Loading backtest data...</div></div>
+    <div class="loading"><div class="spinner"></div><div>Loading backtest...</div></div>
   </div>
-
 </div>
 </div>
 
-
-<!-- ═══════════════ STRATEGY TAB ═══════════════ -->
+<!-- ═══ STRATEGY ═══ -->
 <div id="tab-strategy" class="tab-content">
 <div class="main">
   <div id="strategy-container">
@@ -247,125 +249,171 @@ canvas{width:100%!important;max-height:180px}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
-
-function switchTab(name) {
+function switchTab(name, el) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  document.querySelector(`#tab-${name}`).classList.add('active');
-  event.target.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+  el.classList.add('active');
 }
 
 async function loadAll() {
   await Promise.all([loadPicks(), loadBacktest(), loadStrategy()]);
 }
 
-// ─── PICKS ───────────────────────────────────────────────
+// ─── PICKS ───────────────────────────────────────────
 
 async function loadPicks() {
-  const container = document.getElementById('games-container');
-  container.innerHTML = '<div class="loading"><div class="spinner"></div><div>Loading...</div></div>';
-
+  const c = document.getElementById('games-container');
+  c.innerHTML = '<div class="loading"><div class="spinner"></div><div>Loading...</div></div>';
   try {
-    const res  = await fetch('./predictions.json?t=' + Date.now());
-    const data = await res.json();
-
+    const data = await fetch('./predictions.json?t='+Date.now()).then(r=>r.json());
     const d = new Date(data.generated_at);
     document.getElementById('last-updated').textContent =
-      'Updated ' + d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) +
-      ' at ' + d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-
+      'Updated '+d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+
+      ' at '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
     if (data.model_stats) {
       const ms = data.model_stats;
       document.getElementById('lr-auc').textContent  = ms.ml_lr_auc  || '--';
       document.getElementById('xgb-auc').textContent = ms.ml_xgb_auc || '--';
-      document.getElementById('sp-mae').textContent  = (ms.spread_mae||'--') + ' pts';
-      document.getElementById('tot-mae').textContent = (ms.totals_mae||'--') + ' pts';
+      document.getElementById('sp-mae').textContent  = (ms.spread_mae||'--')+' pts';
+      document.getElementById('tot-mae').textContent = (ms.totals_mae||'--')+' pts';
     }
-
-    if (!data.has_live_odds) {
-      document.getElementById('no-odds-notice').style.display = 'block';
-    }
-
+    if (!data.has_live_odds) document.getElementById('no-odds-notice').style.display='block';
     const games = data.games || [];
     document.getElementById('games-title').textContent =
-      games.length ? `TODAY'S PICKS (${games.length} games)` : "NO GAMES TODAY";
-
+      games.length ? `TODAY'S PICKS (${games.length})` : 'NO GAMES TODAY';
     if (!games.length) {
-      container.innerHTML = '<div class="no-data">No games scheduled today. Check back later.</div>';
-      return;
+      c.innerHTML = '<div class="no-data">No games scheduled today.</div>'; return;
     }
-
-    container.innerHTML = games.map(renderGame).join('');
+    c.innerHTML = games.map(renderGame).join('');
     requestAnimationFrame(() => {
-      document.querySelectorAll('.prob-fill').forEach(el => {
-        el.style.width = el.dataset.w + '%';
-      });
+      document.querySelectorAll('.prob-fill').forEach(el => el.style.width = el.dataset.w+'%');
     });
-
   } catch(e) {
-    container.innerHTML = `<div style="padding:20px;color:var(--red);font-size:13px">
-      Could not load predictions.json. Run the model first.<br>
-      <small style="opacity:0.5">${e.message}</small></div>`;
+    c.innerHTML = `<div style="padding:16px;color:var(--red);font-size:12px">Could not load predictions.json — run the model first.<br><small style="opacity:0.5">${e.message}</small></div>`;
   }
 }
 
+function fmtOdds(o) { return !o ? '--' : o>0 ? '+'+o : String(o); }
+function fmtPct(v) { return v ? (v*100).toFixed(1)+'%' : '--'; }
+
 function renderGame(g) {
-  if (g.error) return `<div class="game-card" style="padding:18px;color:var(--red)">${g.matchup}: ${g.error}</div>`;
+  if (g.error) return `<div class="game-card" style="padding:16px;color:var(--red)">${g.matchup}: ${g.error}</div>`;
 
-  const ml   = g.moneyline  || {};
-  const sp   = g.spread     || {};
-  const tot  = g.totals     || {};
-  const elo  = g.elo        || {};
-  const recs = g.recommendations || [];
-  const book = g.book_odds  || {};
+  const ml   = g.moneyline      || {};
+  const sp   = g.spread         || {};
+  const tot  = g.totals         || {};
+  const elo  = g.elo            || {};
+  const recs = g.recommendations|| [];
+  const book = g.book_odds      || {};
+  const inj  = g.injuries       || {};
+  const pp   = g.player_profiles|| {};
+  const facs = g.top_factors    || [];
 
-  const hwp = ((ml.home_win_prob||0.5)*100).toFixed(1);
-  const awp = ((ml.away_win_prob||0.5)*100).toFixed(1);
+  const hwp      = ((ml.home_win_prob||0.5)*100).toFixed(1);
+  const awp      = ((ml.away_win_prob||0.5)*100).toFixed(1);
   const hasRec   = recs.length > 0;
+  const hasInj   = (inj.home?.out?.length||0)+(inj.away?.out?.length||0) > 0;
+  const starOut  = inj.home?.star_out || inj.away?.star_out;
   const hasAlert = (g.fatigue_alert||[]).length > 0;
+  const hasPP    = pp.has_data && (pp.home?.top_players?.length||0) > 0;
 
-  const margin  = sp.predicted_margin !== undefined
-    ? (sp.predicted_margin>=0?'+':'') + sp.predicted_margin.toFixed(1) : '--';
-  const total   = tot.predicted_total || '--';
+  const margin = sp.predicted_margin !== undefined
+    ? (sp.predicted_margin>=0?'+':'')+sp.predicted_margin.toFixed(1) : '--';
+  const total  = tot.predicted_total || '--';
 
-  // Book line comparison
-  const bookML = book.h2h_home
-    ? `<div style="font-size:10px;color:var(--dim);margin-top:4px">Book: ${fmtOdds(book.h2h_home)} / ${fmtOdds(book.h2h_away)}</div>` : '';
-  const bookSP = book.spread_line !== undefined && book.spread_line !== null
-    ? `<div class="pred-vs">Book line: ${book.spread_line>0?'+':''}${book.spread_line}</div>` : '';
-  const bookTOT = book.total_line
-    ? `<div class="pred-vs">Book line: ${book.total_line}</div>` : '';
+  const bookML  = book.h2h_home ? `<div style="font-size:10px;color:var(--dim);margin-top:3px">Book: ${fmtOdds(book.h2h_home)} / ${fmtOdds(book.h2h_away)}</div>` : '';
+  const bookSP  = book.spread_line!=null ? `<div class="pred-vs">Book: ${book.spread_line>0?'+':''}${book.spread_line}</div>` : '';
+  const bookTOT = book.total_line ? `<div class="pred-vs">Book: ${book.total_line}</div>` : '';
 
+  // Recommendations with factor attribution
   const recsHtml = hasRec ? `
     <div class="recs-section">
-      ${recs.map(r => `
-        <div class="rec-row">
-          <div class="rec-grade grade-${r.grade}">${r.grade}</div>
-          <div class="rec-type">${r.type}</div>
-          <div class="rec-side">${r.side}</div>
-          <div class="rec-edge">+${(r.edge*100).toFixed(1)}% edge</div>
-          <div class="rec-kelly">${r.kelly_pct}% Kelly</div>
+      ${recs.map(r => {
+        const topF = r.top_factors || [];
+        return `<div class="rec-block">
+          <div class="rec-header">
+            <div class="rec-grade grade-${r.grade}">${r.grade}</div>
+            <div class="rec-type">${r.type}</div>
+            <div class="rec-side">${r.side}</div>
+            <div class="rec-edge">+${(r.edge*100).toFixed(1)}% edge</div>
+            <div class="rec-kelly">${r.kelly_pct}% Kelly</div>
+          </div>
           <div class="rec-reason">${r.reason}</div>
-        </div>
-      `).join('')}
+          ${topF.length ? `<div class="factors-wrap">
+            ${topF.map(f=>`<div class="factor-tag pos">&uarr; ${f}</div>`).join('')}
+          </div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>` : '';
+
+  // Factor attribution (all games)
+  const factorsHtml = facs.length ? `
+    <div style="padding:8px 18px;border-top:1px solid var(--border);background:rgba(0,229,255,0.02)">
+      <div style="font-size:10px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Key Factors</div>
+      <div class="factors-wrap">
+        ${facs.slice(0,6).map(f=>`
+          <div class="factor-tag ${f.direction==='+'?'pos':'neg'}" title="${f.detail}">
+            ${f.direction==='+'?'&uarr;':'&darr;'} ${f.label}
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  // Injury section
+  const injHtml = (hasInj || inj.home?.questionable?.length || inj.away?.questionable?.length) ? `
+    <div class="inj-section">
+      <div style="font-size:10px;color:var(--red);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Injury Report</div>
+      ${inj.home?.out?.length ? `<div class="inj-row"><div class="inj-status out">OUT (${g.home_team})</div><div class="inj-names">${inj.home.out.join(', ')}</div></div>` : ''}
+      ${inj.home?.questionable?.length ? `<div class="inj-row"><div class="inj-status q">QST (${g.home_team})</div><div class="inj-names">${inj.home.questionable.join(', ')}</div></div>` : ''}
+      ${inj.away?.out?.length ? `<div class="inj-row"><div class="inj-status out">OUT (${g.away_team})</div><div class="inj-names">${inj.away.out.join(', ')}</div></div>` : ''}
+      ${inj.away?.questionable?.length ? `<div class="inj-row"><div class="inj-status q">QST (${g.away_team})</div><div class="inj-names">${inj.away.questionable.join(', ')}</div></div>` : ''}
+    </div>` : '';
+
+  // Player stats section
+  const playerHtml = hasPP ? `
+    <div class="player-section">
+      <div style="font-size:10px;color:var(--purple);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">Player Stats</div>
+      <div class="player-teams">
+        ${[['home',g.home_team],['away',g.away_team]].map(([side,abbr]) => {
+          const prof = pp[side] || {};
+          const players = prof.top_players || [];
+          return `<div>
+            <div class="player-team-title">${abbr}</div>
+            <div class="player-header">
+              <span>Player</span><span class="pval">PTS</span><span class="pval">REB</span><span class="pval">AST</span><span class="pval">FG%</span>
+            </div>
+            ${players.map(p=>`<div class="player-row">
+              <span class="pname">${p.name||''}</span>
+              <span class="pval">${p.pts||0}</span>
+              <span class="pval">${p.reb||0}</span>
+              <span class="pval">${p.ast||0}</span>
+              <span class="pval">${p.fg_pct?(p.fg_pct*100).toFixed(0)+'%':'--'}</span>
+            </div>`).join('')}
+            <div class="team-stats-row">
+              <div class="tstat">BPM<span>${prof.team_bpm||0}</span></div>
+              <div class="tstat">PER<span>${prof.team_per||0}</span></div>
+              <div class="tstat">VORP<span>${prof.team_vorp||0}</span></div>
+              <div class="tstat">3P%<span>${prof.fg3_pct?(prof.fg3_pct*100).toFixed(1)+'%':'--'}</span></div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
     </div>` : '';
 
   const alertHtml = hasAlert ? `
-    <div style="padding:7px 18px;background:rgba(255,214,0,0.06);border-top:1px solid rgba(255,214,0,0.2);font-size:11px;color:var(--yellow)">
-      ${g.fatigue_alert.map(a=>`&#9888; ${a}`).join('  ')}
-    </div>` : '';
+    <div class="alert-row">${g.fatigue_alert.map(a=>`&#9888; ${a}`).join('  &nbsp;')}</div>` : '';
 
   return `
-  <div class="game-card ${hasRec?'has-rec':''} ${hasAlert?'b2b':''}">
+  <div class="game-card ${hasRec?'has-rec':''} ${hasAlert?'b2b':''} ${starOut?'star-out':''}">
     <div class="game-header">
       <div class="matchup">
-        <span>${g.home_team||'HOME'}</span>
-        <span class="vs">vs</span>
-        <span class="away">${g.away_team||'AWAY'}</span>
+        <span>${g.home_team}</span><span class="vs">vs</span><span class="away">${g.away_team}</span>
       </div>
-      <div class="header-badges">
-        ${hasRec ? '<span class="badge rec">EDGE FOUND</span>' : ''}
-        ${hasAlert ? '<span class="badge b2b">B2B</span>' : ''}
+      <div class="hbadges">
+        ${hasRec?'<span class="badge rec">EDGE FOUND</span>':''}
+        ${starOut?'<span class="badge out">STAR OUT</span>':''}
+        ${hasAlert?'<span class="badge b2b">B2B</span>':''}
+        ${hasPP?'<span class="badge player">PLAYER DATA</span>':''}
         <span class="badge time">${g.game_time||'TBD'}</span>
       </div>
     </div>
@@ -374,13 +422,10 @@ function renderGame(g) {
       <div class="gs">
         <div class="gs-label">Win Probability</div>
         <div style="font-size:10px;color:var(--dim);display:flex;justify-content:space-between;margin-bottom:3px">
-          <span>${g.home_team||'HOME'}</span><span>${g.away_team||'AWAY'}</span>
+          <span>${g.home_team}</span><span>${g.away_team}</span>
         </div>
         <div class="prob-bar"><div class="prob-fill" data-w="${hwp}" style="width:0%"></div></div>
-        <div class="prob-row">
-          <div class="prob-h">${hwp}%</div>
-          <div class="prob-a">${awp}%</div>
-        </div>
+        <div class="prob-row"><div class="prob-h">${hwp}%</div><div class="prob-a">${awp}%</div></div>
         ${bookML}
         <div class="model-tags">
           <span class="mtag">LR ${((ml.lr_prob||0)*100).toFixed(0)}%</span>
@@ -389,14 +434,12 @@ function renderGame(g) {
           <span class="mtag ${ml.model_consensus?'agree':''}">${ml.model_consensus?'AGREE':'SPLIT'}</span>
         </div>
       </div>
-
       <div class="gs">
         <div class="gs-label">Spread (Home)</div>
         <div class="pred-big">${margin}</div>
         ${bookSP}
         <div class="pred-sub">MAE &plusmn;${sp.model_mae||'--'} pts</div>
       </div>
-
       <div class="gs">
         <div class="gs-label">Total Points</div>
         <div class="pred-big">${total}</div>
@@ -406,6 +449,9 @@ function renderGame(g) {
     </div>
 
     ${recsHtml}
+    ${factorsHtml}
+    ${injHtml}
+    ${playerHtml}
     ${alertHtml}
 
     <div class="elo-row">
@@ -415,371 +461,276 @@ function renderGame(g) {
   </div>`;
 }
 
-function fmtOdds(o) {
-  if (!o) return '--';
-  return o > 0 ? '+'+o : String(o);
-}
 
-// ─── BACKTEST ────────────────────────────────────────────
+// ─── BACKTEST ────────────────────────────────────────
 
-let chartInstance = null;
+let chartInst = null;
 
 async function loadBacktest() {
-  const container = document.getElementById('bt-container');
-
+  const c = document.getElementById('bt-container');
   try {
-    const res  = await fetch('./backtest.json?t=' + Date.now());
-    const bt   = await res.json();
-
+    const bt  = await fetch('./backtest.json?t='+Date.now()).then(r=>r.json());
     const ml  = bt.ml     || {};
     const sp  = bt.spread || {};
     const tot = bt.totals || {};
     const cal = bt.calibration || [];
     const mon = bt.monthly || [];
+    const fi  = bt.feature_importance || [];
 
-    const roi_class = ml.roi_pct >= 0 ? 'green' : 'red';
-    const pnl_class = ml.pnl >= 0 ? 'green' : 'red';
-    const acc_class = ml.accuracy >= 0.55 ? 'green' : ml.accuracy >= 0.52 ? 'yellow' : 'red';
+    const roi_cls = ml.roi_pct>=0?'green':'red';
+    const acc_cls = (ml.accuracy||0)>=0.55?'green':(ml.accuracy||0)>=0.52?'yellow':'red';
 
-    container.innerHTML = `
+    c.innerHTML = `
       <div class="bt-grid">
         <div class="bt-card">
-          <div class="bt-title">Moneyline Results</div>
-          <div class="bt-big ${acc_class}">${(ml.accuracy*100).toFixed(1)}%</div>
-          <div class="bt-sub">prediction accuracy</div>
-          <div style="margin-top:14px">
-            <div class="bt-row"><span class="bt-key">Test games</span><span class="bt-val">${bt.test_games}</span></div>
-            <div class="bt-row"><span class="bt-key">Train games</span><span class="bt-val">${bt.train_games}</span></div>
-            <div class="bt-row"><span class="bt-key">Bets placed</span><span class="bt-val">${ml.bets_placed}</span></div>
-            <div class="bt-row"><span class="bt-key">Won / Lost</span><span class="bt-val">${ml.bets_won} / ${ml.bets_placed - ml.bets_won}</span></div>
-            <div class="bt-row"><span class="bt-key">Win rate</span><span class="bt-val">${(ml.win_rate*100).toFixed(1)}%</span></div>
+          <div class="bt-title">ML Accuracy</div>
+          <div class="bt-big ${acc_cls}">${((ml.accuracy||0)*100).toFixed(1)}%</div>
+          <div class="bt-sub">prediction accuracy on test set</div>
+          <div style="margin-top:12px">
+            <div class="bt-row"><span class="bt-key">Train games</span><span class="bt-val">${bt.train_games||'--'}</span></div>
+            <div class="bt-row"><span class="bt-key">Test games</span><span class="bt-val">${bt.test_games||'--'}</span></div>
+            <div class="bt-row"><span class="bt-key">Bets placed</span><span class="bt-val">${ml.bets_placed||0}</span></div>
+            <div class="bt-row"><span class="bt-key">Won / Lost</span><span class="bt-val">${ml.bets_won||0} / ${(ml.bets_placed||0)-(ml.bets_won||0)}</span></div>
+            <div class="bt-row"><span class="bt-key">Win rate</span><span class="bt-val">${((ml.win_rate||0)*100).toFixed(1)}%</span></div>
+            <div class="bt-row"><span class="bt-key">Has player data</span><span class="bt-val">${bt.has_player_data?'Yes':'No'}</span></div>
           </div>
         </div>
-
         <div class="bt-card">
-          <div class="bt-title">Simulated P&amp;L ($100 flat bets)</div>
-          <div class="bt-big ${pnl_class}">${ml.pnl >= 0 ? '+' : ''}$${ml.pnl}</div>
+          <div class="bt-title">Simulated P&amp;L ($100 flat)</div>
+          <div class="bt-big ${ml.pnl>=0?'green':'red'}">${ml.pnl>=0?'+':''}$${ml.pnl||0}</div>
           <div class="bt-sub">on $1,000 starting bankroll</div>
-          <div style="margin-top:14px">
-            <div class="bt-row"><span class="bt-key">ROI</span><span class="bt-val ${roi_class}">${ml.roi_pct >= 0?'+':''}${ml.roi_pct}%</span></div>
-            <div class="bt-row"><span class="bt-key">End bankroll</span><span class="bt-val">$${ml.ending_bankroll}</span></div>
-            <div class="bt-row"><span class="bt-key">Break-even rate</span><span class="bt-val">52.4%</span></div>
+          <div style="margin-top:12px">
+            <div class="bt-row"><span class="bt-key">ROI</span><span class="bt-val ${roi_cls}">${ml.roi_pct>=0?'+':''}${ml.roi_pct||0}%</span></div>
+            <div class="bt-row"><span class="bt-key">End bankroll</span><span class="bt-val">$${ml.ending_bankroll||1000}</span></div>
+            <div class="bt-row"><span class="bt-key">Break-even</span><span class="bt-val">52.4%</span></div>
           </div>
         </div>
-
         <div class="bt-card">
           <div class="bt-title">Spread &amp; Totals</div>
-          <div class="bt-big yellow">${sp.mae}</div>
-          <div class="bt-sub">spread MAE (points)</div>
-          <div style="margin-top:14px">
-            <div class="bt-row"><span class="bt-key">Spread within 5pts</span><span class="bt-val">${(sp.within_5*100).toFixed(0)}%</span></div>
-            <div class="bt-row"><span class="bt-key">Spread within 10pts</span><span class="bt-val">${(sp.within_10*100).toFixed(0)}%</span></div>
-            <div class="bt-row"><span class="bt-key">Total MAE</span><span class="bt-val">${tot.mae} pts</span></div>
-            <div class="bt-row"><span class="bt-key">Total within 5pts</span><span class="bt-val">${(tot.within_5*100).toFixed(0)}%</span></div>
-            <div class="bt-row"><span class="bt-key">Total within 10pts</span><span class="bt-val">${(tot.within_10*100).toFixed(0)}%</span></div>
+          <div class="bt-big yellow">${sp.mae||'--'}</div>
+          <div class="bt-sub">spread MAE (pts)</div>
+          <div style="margin-top:12px">
+            <div class="bt-row"><span class="bt-key">Spread within 5</span><span class="bt-val">${((sp.within_5||0)*100).toFixed(0)}%</span></div>
+            <div class="bt-row"><span class="bt-key">Spread within 10</span><span class="bt-val">${((sp.within_10||0)*100).toFixed(0)}%</span></div>
+            <div class="bt-row"><span class="bt-key">Total MAE</span><span class="bt-val">${tot.mae||'--'} pts</span></div>
+            <div class="bt-row"><span class="bt-key">Total within 5</span><span class="bt-val">${((tot.within_5||0)*100).toFixed(0)}%</span></div>
+            <div class="bt-row"><span class="bt-key">Total within 10</span><span class="bt-val">${((tot.within_10||0)*100).toFixed(0)}%</span></div>
           </div>
         </div>
       </div>
 
-      <!-- Bankroll chart -->
       <div class="chart-wrap">
         <div class="chart-title">Simulated Bankroll History</div>
-        <canvas id="bankroll-chart" height="160"></canvas>
+        <canvas id="bk-chart" height="160"></canvas>
       </div>
 
-      <!-- Calibration -->
-      <div class="section-title" style="margin-top:24px">Model Calibration</div>
+      ${fi.length ? `
+      <div class="section-title" style="margin-top:24px">Feature Importance (XGB)</div>
       <div class="bt-card" style="margin-bottom:20px">
-        <div class="bt-title">Does predicted probability match actual win rate?</div>
+        ${fi.slice(0,10).map(f => {
+          const pct = (f.importance / (fi[0].importance||1) * 100).toFixed(0);
+          return `<div class="fi-bar-wrap">
+            <div class="fi-label"><span>${f.label||f.feature}</span><span style="color:var(--dim)">${(f.importance*100).toFixed(2)}%</span></div>
+            <div class="fi-bar-bg"><div class="fi-bar-fill" style="width:${pct}%"></div></div>
+          </div>`;
+        }).join('')}
+      </div>` : ''}
+
+      <div class="section-title" style="margin-top:20px">Calibration</div>
+      <div class="bt-card" style="margin-bottom:20px">
         <table class="cal-table">
-          <thead><tr>
-            <th>Predicted Range</th>
-            <th>Avg Predicted</th>
-            <th>Actual Rate</th>
-            <th>Diff</th>
-            <th>Samples</th>
-            <th style="width:130px">Visual</th>
-          </tr></thead>
+          <thead><tr><th>Range</th><th>Predicted</th><th>Actual</th><th>Diff</th><th>N</th></tr></thead>
           <tbody>
-            ${cal.map(c => {
-              const diff = c.diff;
-              const cls  = Math.abs(diff) < 0.03 ? 'cal-good' : 'cal-bad';
-              const fill = Math.min(100, c.actual * 200);
-              return `<tr>
-                <td>${c.bucket}</td>
-                <td>${(c.predicted*100).toFixed(1)}%</td>
-                <td>${(c.actual*100).toFixed(1)}%</td>
-                <td class="${cls}">${diff >= 0 ? '+' : ''}${(diff*100).toFixed(1)}%</td>
-                <td>${c.n}</td>
-                <td class="cal-bar-wrap"><div class="cal-bar-bg"><div class="cal-bar-fill" style="width:${fill}%"></div></div></td>
-              </tr>`;
-            }).join('')}
+            ${cal.map(r=>`<tr>
+              <td>${r.bucket}</td>
+              <td>${(r.predicted*100).toFixed(1)}%</td>
+              <td>${(r.actual*100).toFixed(1)}%</td>
+              <td class="${Math.abs(r.diff)<0.03?'cal-good':'cal-bad'}">${r.diff>=0?'+':''}${(r.diff*100).toFixed(1)}%</td>
+              <td>${r.n}</td>
+            </tr>`).join('')}
           </tbody>
         </table>
       </div>
 
-      <!-- Monthly -->
-      <div class="section-title">Accuracy by Month</div>
+      <div class="section-title">Monthly Accuracy</div>
       <div class="bt-card">
         <table class="month-table">
-          <thead><tr>
-            <th>Month</th><th>Games</th><th>ML Accuracy</th><th>Avg Confidence</th>
-          </tr></thead>
+          <thead><tr><th>Month</th><th>Games</th><th>Accuracy</th><th>Avg Confidence</th></tr></thead>
           <tbody>
-            ${mon.map(m => {
-              const cls = m.accuracy >= 0.55 ? 'style="color:var(--green)"'
-                        : m.accuracy >= 0.52 ? 'style="color:var(--yellow)"'
-                        : 'style="color:var(--red)"';
-              return `<tr>
-                <td>${m.month}</td>
-                <td>${m.games}</td>
-                <td ${cls}>${(m.accuracy*100).toFixed(1)}%</td>
-                <td>${(m.avg_prob*100).toFixed(1)}%</td>
-              </tr>`;
+            ${mon.map(m=>{
+              const cls=(m.accuracy>=0.55)?'style="color:var(--green)"':(m.accuracy>=0.52)?'style="color:var(--yellow)"':'style="color:var(--red)"';
+              return `<tr><td>${m.month}</td><td>${m.games}</td><td ${cls}>${(m.accuracy*100).toFixed(1)}%</td><td>${(m.avg_prob*100).toFixed(1)}%</td></tr>`;
             }).join('')}
           </tbody>
         </table>
       </div>
     `;
 
-    // Draw bankroll chart
-    const history = ml.bankroll_history || [1000];
-    if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
-    const ctx = document.getElementById('bankroll-chart').getContext('2d');
-    chartInstance = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: history.map((_,i) => i===0?'Start':`Bet ${i}`),
-        datasets: [{
-          data:            history,
-          borderColor:     history[history.length-1] >= 1000 ? '#00ff87' : '#ff3d5a',
-          backgroundColor: history[history.length-1] >= 1000
-            ? 'rgba(0,255,135,0.05)' : 'rgba(255,61,90,0.05)',
-          borderWidth:     2,
-          pointRadius:     0,
-          tension:         0.3,
-          fill:            true,
-        }]
-      },
-      options: {
-        responsive:true,
-        plugins:{legend:{display:false}},
-        scales:{
-          x:{display:false},
-          y:{
-            grid:   {color:'rgba(255,255,255,0.04)'},
-            ticks:  {color:'#718096',font:{size:10},callback:v=>'$'+v},
-            border: {display:false},
-          }
-        }
-      }
+    // Bankroll chart
+    const hist = ml.bankroll_history || [1000];
+    if (chartInst) { chartInst.destroy(); chartInst=null; }
+    const ctx = document.getElementById('bk-chart').getContext('2d');
+    const isUp = hist[hist.length-1] >= 1000;
+    chartInst = new Chart(ctx, {
+      type:'line',
+      data:{labels:hist.map((_,i)=>i===0?'Start':'Bet '+i),
+            datasets:[{data:hist,borderColor:isUp?'#00ff87':'#ff3d5a',
+                       backgroundColor:isUp?'rgba(0,255,135,0.05)':'rgba(255,61,90,0.05)',
+                       borderWidth:2,pointRadius:0,tension:0.3,fill:true}]},
+      options:{responsive:true,plugins:{legend:{display:false}},
+               scales:{x:{display:false},y:{grid:{color:'rgba(255,255,255,0.04)'},
+               ticks:{color:'#718096',font:{size:10},callback:v=>'$'+v},border:{display:false}}}}
     });
 
   } catch(e) {
-    container.innerHTML = `<div class="no-data">
-      Backtest data not available yet.<br>
-      <small style="opacity:0.5;margin-top:6px;display:block">Run the model first to generate backtest.json</small>
-    </div>`;
+    c.innerHTML = `<div class="no-data">Backtest data not available yet. Run the model first.<br><small style="opacity:0.5">${e.message}</small></div>`;
   }
 }
 
 
-// ─── STRATEGY ────────────────────────────────────────────
+// ─── STRATEGY ────────────────────────────────────────
 
 async function loadStrategy() {
-  const container = document.getElementById('strategy-container');
-  
+  const c = document.getElementById('strategy-container');
   try {
-    const [predRes, btRes] = await Promise.all([
-      fetch('./predictions.json?t=' + Date.now()).then(r => r.json()).catch(() => null),
-      fetch('./backtest.json?t=' + Date.now()).then(r => r.json()).catch(() => null),
+    const [pred, bt] = await Promise.all([
+      fetch('./predictions.json?t='+Date.now()).then(r=>r.json()).catch(()=>null),
+      fetch('./backtest.json?t='+Date.now()).then(r=>r.json()).catch(()=>null),
     ]);
 
-    const games    = predRes?.games || [];
-    const bt       = btRes || {};
-    const ml       = bt.ml || {};
-    const sp       = bt.spread || {};
-    const tot      = bt.totals || {};
-    const monthly  = bt.monthly || [];
+    const games   = pred?.games || [];
+    const ml      = bt?.ml     || {};
+    const sp      = bt?.spread || {};
+    const tot     = bt?.totals || {};
+    const monthly = bt?.monthly|| [];
+    const fi      = bt?.feature_importance || [];
 
-    // Derive backtest insights dynamically
-    const acc      = ml.accuracy ? (ml.accuracy*100).toFixed(1) : null;
-    const roi      = ml.roi_pct;
-    const bets     = ml.bets_placed || 0;
-    const winRate  = ml.win_rate ? (ml.win_rate*100).toFixed(1) : null;
-    const spMae    = sp.mae || null;
-    const totMae   = tot.mae || null;
-    const pnl      = ml.pnl || 0;
-
-    // Find best and worst months
-    let bestMonth = null, worstMonth = null;
-    if (monthly.length) {
-      bestMonth  = monthly.reduce((a,b) => a.accuracy > b.accuracy ? a : b);
-      worstMonth = monthly.reduce((a,b) => a.accuracy < b.accuracy ? a : b);
-    }
-
-    // Derive today's strategy from recommendations
-    const allRecs = games.flatMap(g => (g.recommendations||[]).map(r => ({...r, matchup:g.matchup, fatigue:g.fatigue_alert||[]})));
-    const gradeA  = allRecs.filter(r => r.grade === 'A');
-    const gradeB  = allRecs.filter(r => r.grade === 'B');
-    const b2bGames= games.filter(g => (g.fatigue_alert||[]).length > 0);
-    const noRec   = games.filter(g => !(g.recommendations||[]).length);
-
-    // Backtest data range from monthly
-    const months  = monthly.map(m => m.month);
+    const acc     = ml.accuracy ? (ml.accuracy*100).toFixed(1) : null;
+    const roi     = ml.roi_pct;
+    const bets    = ml.bets_placed || 0;
+    const months  = monthly.map(m=>m.month);
     const dateRange = months.length ? `${months[0]} through ${months[months.length-1]}` : 'this season';
 
-    // Build insights
+    const bestM  = monthly.length ? monthly.reduce((a,b)=>a.accuracy>b.accuracy?a:b) : null;
+    const worstM = monthly.length ? monthly.reduce((a,b)=>a.accuracy<b.accuracy?a:b) : null;
+    const b2bGames = games.filter(g=>(g.fatigue_alert||[]).length>0);
+    const injGames = games.filter(g=>(g.injuries?.home?.out?.length||0)+(g.injuries?.away?.out?.length||0)>0);
+    const allRecs  = games.flatMap(g=>(g.recommendations||[]).map(r=>({...r,matchup:g.matchup})));
+    const gradeA   = allRecs.filter(r=>r.grade==='A');
+    const hasPlayer= pred?.has_player_data || false;
+    const hasInj   = pred?.has_injury_data || false;
+
     const insights = [];
     if (acc) {
-      const accNum = parseFloat(acc);
-      if (accNum >= 62) insights.push({icon:'>', text:`Strong predictive accuracy at ${acc}% — model consistently identifies favorites correctly and can be trusted for moneyline bets when edge exceeds 4%.`});
-      else if (accNum >= 55) insights.push({icon:'>', text:`Solid accuracy at ${acc}% — above the 52.4% break-even threshold. Focus bets on Grade A edges where model confidence is highest.`});
-      else insights.push({icon:'!', text:`Accuracy of ${acc}% is near break-even. Be highly selective — only bet Grade A edges with model consensus.`});
+      const n = parseFloat(acc);
+      if (n>=62) insights.push({i:'>',t:`Strong accuracy at ${acc}% — well above the 52.4% break-even. Moneyline bets on Grade A edges are justified.`});
+      else if (n>=55) insights.push({i:'>',t:`Solid accuracy at ${acc}% — above break-even. Focus exclusively on Grade A edges (6%+) and require model consensus.`});
+      else insights.push({i:'!',t:`Accuracy of ${acc}% is near break-even. Be very selective — only Grade A edges with consensus and no B2B flag.`});
     }
-    if (roi !== undefined && roi !== null) {
-      if (roi > 0) insights.push({icon:'>', text:`Simulated ROI of +${roi}% on flat $100 bets across ${bets} qualifying plays — a profitable edge exists. Quarter-Kelly sizing preserves bankroll during variance.`});
-      else insights.push({icon:'!', text:`Simulated ROI of ${roi}% suggests the edge is thin or absent at the current bet threshold. Raise MIN_EDGE to 5% to filter for higher-quality spots only.`});
+    if (roi!==undefined&&roi!==null) {
+      if (roi>0) insights.push({i:'>',t:`Simulated ROI of +${roi}% across ${bets} qualifying bets — a profitable edge exists on this season's data.`});
+      else insights.push({i:'!',t:`Simulated ROI of ${roi}% — edge is thin at 55% threshold. Consider raising MIN_EDGE to 5% in the model config.`});
     }
-    if (spMae) insights.push({icon:'>', text:`Spread model MAE of ${spMae} pts — use spread picks only when model projection differs from the book line by 4+ pts (Grade A/B only).`});
-    if (totMae) insights.push({icon:'>', text:`Totals model MAE of ${totMae} pts — totals are harder to predict with score-only data. Prioritize totals picks with pace mismatch and no B2B fatigue.`});
-    if (bestMonth) insights.push({icon:'>', text:`Best month: ${bestMonth.month} at ${(bestMonth.accuracy*100).toFixed(1)}% accuracy — model performs best mid-season when team form is established and rolling averages are well-populated.`});
-    if (worstMonth) insights.push({icon:'>', text:`Weakest month: ${worstMonth.month} at ${(worstMonth.accuracy*100).toFixed(1)}% — early-season predictions are less reliable as rolling windows contain fewer data points. Reduce bet size in October-November.`});
-    if (b2bGames.length) insights.push({icon:'!', text:`${b2bGames.length} game(s) today involve B2B teams. Historical data shows B2B road teams cover the spread at only ~44% — a significant fade opportunity.`});
+    if (hasPlayer) insights.push({i:'>',t:`Player stats (PTS/REB/AST/FG%/3P%/BPM/VORP/PER) are active — model incorporates roster quality, shooting efficiency, and lineup depth differentials.`});
+    if (hasInj)    insights.push({i:'>',t:`Official NBA injury reports are active — Out and Questionable designations are factored into lineup quality scores and flagged on game cards.`});
+    if (sp.mae)    insights.push({i:'>',t:`Spread MAE of ${sp.mae} pts — bet spreads only when model differs from book by 4+ points (Grade A/B). Within that range, win rate is significantly above average.`});
+    if (tot.mae)   insights.push({i:'>',t:`Totals MAE of ${tot.mae} pts — pace mismatch between fast and slow teams creates the best totals opportunities. Check pace_roll10 differential.`});
+    if (bestM)     insights.push({i:'>',t:`Best month: ${bestM.month} at ${(bestM.accuracy*100).toFixed(1)}% — mid-season when rolling averages are fully populated and team identities are set.`});
+    if (worstM)    insights.push({i:'>',t:`Weakest month: ${worstM.month} at ${(worstM.accuracy*100).toFixed(1)}% — model is less reliable early season. Reduce bet sizes October-November.`});
+    if (b2bGames.length) insights.push({i:'!',t:`${b2bGames.length} B2B game(s) today — B2B road teams historically cover at only 44%. Prioritise fading B2B teams.`});
+    if (injGames.length) insights.push({i:'!',t:`${injGames.length} game(s) today with confirmed-out players — check the injury cards on the Picks tab before placing bets.`});
+    if (fi.length) insights.push({i:'>',t:`Top model features: ${fi.slice(0,3).map(f=>f.label||f.feature).join(', ')}. These variables drive the most predictive power — look for large differentials in these metrics.`});
 
-    // Today's game-by-game plan
+    // Today's game plan
     const todayPlan = games.map(g => {
       const recs   = g.recommendations || [];
       const alerts = g.fatigue_alert   || [];
-      const ml     = g.moneyline       || {};
-      const sp     = g.spread          || {};
-      const tot    = g.totals          || {};
+      const ml2    = g.moneyline       || {};
+      const sp2    = g.spread          || {};
+      const tot2   = g.totals          || {};
+      const inj2   = g.injuries        || {};
+      const outH   = inj2.home?.out || [];
+      const outA   = inj2.away?.out || [];
+      const starOut= inj2.home?.star_out||inj2.away?.star_out;
 
-      if (!recs.length && !alerts.length) {
-        return {
-          matchup:   g.matchup,
-          grade:     'PASS',
-          action:    'No bet — no edge detected',
-          rationale: `Model win probability: ${((ml.home_win_prob||0.5)*100).toFixed(1)}% home. Implied spread: ${sp.predicted_margin !== undefined ? (sp.predicted_margin>=0?'+':'')+sp.predicted_margin.toFixed(1) : '--'} pts. No significant deviation from book lines.`,
-          cls:       'skip',
-        };
+      if (!recs.length) {
+        let reason = `Model win prob: home ${((ml2.home_win_prob||0.5)*100).toFixed(1)}% / away ${((ml2.away_win_prob||0.5)*100).toFixed(1)}%. No significant edge over book lines detected.`;
+        if (starOut) reason += ' WARNING: star player confirmed out — lines may shift.';
+        return {matchup:g.matchup,grade:'PASS',action:'No bet — insufficient edge',rationale:reason,cls:'skip'};
       }
 
-      const topRec = recs.sort((a,b) => b.edge - a.edge)[0];
-      const b2bNote = alerts.length ? ` Note: ${alerts.join(', ')} — reduce size by 50%.` : '';
-      const consensus = ml.model_consensus ? 'All three models agree.' : 'Models are split — treat as Grade B regardless.';
-
-      let action = '', rationale = '';
-      if (topRec) {
-        const kellySized = alerts.length ? (topRec.kelly_pct / 2).toFixed(1) : topRec.kelly_pct;
-        action = `BET ${topRec.type} ${topRec.side} — ${topRec.kelly_pct}% Kelly${alerts.length ? ` (reduced to ${kellySized}% for B2B)` : ''}`;
-        rationale = `${topRec.reason}. ${consensus}${b2bNote}`;
-      } else if (alerts.length) {
-        action = `FADE B2B — consider opposite side at reduced size`;
-        rationale = `${alerts.join(', ')} significantly impacts performance. No model edge, but B2B teams historically underperform.${b2bNote}`;
-      }
+      const top = recs.sort((a,b)=>b.edge-a.edge)[0];
+      const b2b = alerts.length ? ` Reduce size 50% — ${alerts.join(', ')}.` : '';
+      const injNote = outH.length||outA.length ? ` NOTE: ${[...outH.map(p=>g.home_team+' '+p),...outA.map(p=>g.away_team+' '+p)].join(', ')} confirmed out.` : '';
+      const kellySz = alerts.length ? (top.kelly_pct/2).toFixed(1) : top.kelly_pct;
+      const action = `BET ${top.type} ${top.side} @ ${fmtOdds(top.odds)} — ${kellySz}% Kelly${alerts.length?` (halved for B2B)`:''}`;
+      const rationale = `${top.reason}.${b2b}${injNote} Top factors: ${(top.top_factors||[]).slice(0,3).join(', ')}.`;
 
       return {
-        matchup:   g.matchup,
-        grade:     topRec ? topRec.grade : 'B',
-        action,
-        rationale,
-        cls:       topRec ? (topRec.grade === 'A' ? '' : 'warn') : 'warn',
+        matchup:g.matchup,
+        grade:top.grade,
+        action,rationale,
+        cls:top.grade==='A'?'':(top.grade==='B'?'warn':'skip')
       };
     });
 
-    container.innerHTML = `
-
-      <!-- Methodology -->
-      <div class="section-title" style="margin-bottom:14px">
-        <span>MODEL METHODOLOGY</span>
-      </div>
+    c.innerHTML = `
+      <div class="section-title">MODEL METHODOLOGY</div>
       <div class="prose">
-        <p>This model uses an ensemble of Logistic Regression and XGBoost classifiers to predict NBA game outcomes, trained fresh on every run using the current season's complete game log pulled directly from the balldontlie API. Features are engineered from rolling averages (5, 10, and 20 game windows) of points scored, points allowed, point differential, and total points, with additional signals for rest and fatigue (back-to-back games, days of rest), exponentially weighted momentum that emphasises recent form over older results, a scoring-drop injury proxy that flags teams whose output has fallen sharply relative to their baseline, and ELO ratings that are updated after every game using a margin-aware formula. Spread predictions use Ridge Regression targeting point differential, and total points predictions use a second Ridge model targeting combined score. All models are validated using time-series cross-validation to prevent look-ahead bias, and moneyline probabilities are Platt-calibrated so that a 60% prediction reflects a genuine 60% historical win rate. When live sportsbook lines are available via the Odds API, the model computes the no-vig implied probability for each side and flags any bet where the model probability exceeds the true implied probability by more than 3%, sizing the recommended wager using quarter-Kelly criterion.</p>
+        This model uses an ensemble of Logistic Regression and XGBoost classifiers to predict NBA game outcomes, retrained on every run using the complete current season game log from balldontlie. Features are engineered from rolling averages (5, 10, 20 game windows) of points scored, allowed, differential and total, with exponentially weighted momentum that emphasises recent form. Rest and fatigue signals capture back-to-back games and days of rest. Player-level features — sourced from api.server.nbaapi.com — add roster quality scores, BPM, PER, VORP, TS%, FG%, 3P%, FT%, and average turnovers per team. Official NBA injury reports from the nbainjuries package provide real-time Out and Questionable designations, converted into a lineup impact score weighted by each player's scoring share. ELO ratings updated after every game using margin-aware K factors provide a long-run team strength baseline. All models use time-series cross-validation to prevent look-ahead bias, and moneyline probabilities are Platt-calibrated. When live lines are available via The Odds API, the model computes no-vig implied probabilities and flags any bet where the model edge exceeds 3%, sized with quarter-Kelly criterion. Each flagged bet displays the top 3-6 contributing factors — the specific statistical advantages that drove the recommendation.
       </div>
 
-      <!-- Backtest Insights -->
-      <div class="section-title" style="margin-bottom:14px"><span>BACKTEST INSIGHTS</span></div>
-      <div class="strategy-card full" style="margin-bottom:20px">
-        <div class="sc-title">Data Timeframe &amp; Key Findings — ${dateRange}</div>
-        <div class="sc-body">
-          <div style="font-size:12px;color:var(--dim);margin-bottom:12px">
-            Walk-forward backtest: trained on first 70% of season (${bt.train_games||'--'} games), tested on final 30% (${bt.test_games||'--'} games) to simulate real betting conditions.
-          </div>
-          <ul class="insight-list">
-            ${insights.map(i => `<li><span class="ins-icon">${i.icon}</span><span>${i.text}</span></li>`).join('')}
-            ${!insights.length ? '<li><span class="ins-icon">!</span><span>Run the model to generate backtest insights.</span></li>' : ''}
-          </ul>
-        </div>
+      <div class="section-title">BACKTEST INSIGHTS — ${dateRange}</div>
+      <div class="bt-card" style="margin-bottom:20px">
+        <div class="bt-title">Walk-forward test: trained on 70% of season (${bt?.train_games||'--'} games), tested on final 30% (${bt?.test_games||'--'} games)</div>
+        <ul class="insight-list">
+          ${insights.map(i=>`<li><span class="ins-icon">${i.i}</span><span>${i.t}</span></li>`).join('')}
+          ${!insights.length?'<li><span class="ins-icon">!</span><span>Run the model to generate insights.</span></li>':''}
+        </ul>
       </div>
 
-      <!-- Overall Strategy -->
-      <div class="section-title" style="margin-bottom:14px"><span>OVERALL BETTING STRATEGY</span></div>
+      <div class="section-title">OVERALL BETTING STRATEGY</div>
       <div class="strategy-grid">
         <div class="strategy-card">
-          <div class="sc-title">Bet Selection Rules</div>
-          <div class="sc-body">
-            <div class="rule"><div class="rule-num">1</div><div><div class="rule-text">Only bet Grade A or B edges</div><div class="rule-sub">Grade A = 6%+ edge. Grade B = 3-6% edge. Skip Grade C entirely.</div></div></div>
-            <div class="rule"><div class="rule-num">2</div><div><div class="rule-text">Require model consensus</div><div class="rule-sub">LR and XGB must agree within 5%. If they split, reduce size by half or pass.</div></div></div>
-            <div class="rule"><div class="rule-num">3</div><div><div class="rule-text">Fade B2B road teams</div><div class="rule-sub">B2B road teams cover at ~44%. Always reduce bet size 50% when B2B flag is active.</div></div></div>
-            <div class="rule"><div class="rule-num">4</div><div><div class="rule-text">Max 3 bets per day</div><div class="rule-sub">More bets dilutes edge. Quality over quantity. Skip marginal spots.</div></div></div>
-          </div>
+          <div class="sc-title">Bet Selection</div>
+          <div class="rule"><div class="rule-num">1</div><div><div class="rule-text">Grade A or B only</div><div class="rule-sub">A = 6%+ edge, B = 3-6%. Never bet Grade C.</div></div></div>
+          <div class="rule"><div class="rule-num">2</div><div><div class="rule-text">Require model consensus</div><div class="rule-sub">LR and XGB within 5%. Split = reduce size or pass.</div></div></div>
+          <div class="rule"><div class="rule-num">3</div><div><div class="rule-text">Check injury report first</div><div class="rule-sub">Star player out = reassess. Lines may not have adjusted yet.</div></div></div>
+          <div class="rule"><div class="rule-num">4</div><div><div class="rule-text">Max 3 bets per day</div><div class="rule-sub">Quality over quantity. Skip marginal Grade B spots.</div></div></div>
         </div>
-
         <div class="strategy-card">
           <div class="sc-title">Bankroll Management</div>
-          <div class="sc-body">
-            <div class="rule"><div class="rule-num">1</div><div><div class="rule-text">Use quarter-Kelly sizing</div><div class="rule-sub">Kelly % shown is already quarter-Kelly. Never bet more than shown.</div></div></div>
-            <div class="rule"><div class="rule-num">2</div><div><div class="rule-text">Hard cap: 5% per bet</div><div class="rule-sub">Never risk more than 5% of bankroll on a single game regardless of Kelly output.</div></div></div>
-            <div class="rule"><div class="rule-num">3</div><div><div class="rule-text">Line shop across books</div><div class="rule-sub">Get the best number. Half a point on a spread or 5 cents on ML odds compounds over a season.</div></div></div>
-            <div class="rule"><div class="rule-num">4</div><div><div class="rule-text">Track closing line value</div><div class="rule-sub">If you consistently beat the closing line, your process is sound — short-term results are noise.</div></div></div>
-          </div>
+          <div class="rule"><div class="rule-num">1</div><div><div class="rule-text">Quarter-Kelly sizing</div><div class="rule-sub">Kelly % shown is already reduced. Never exceed it.</div></div></div>
+          <div class="rule"><div class="rule-num">2</div><div><div class="rule-text">Hard cap 5% per bet</div><div class="rule-sub">Never risk more than 5% of bankroll regardless of Kelly.</div></div></div>
+          <div class="rule"><div class="rule-num">3</div><div><div class="rule-text">Halve size on B2B</div><div class="rule-sub">B2B teams underperform expectations — reduce exposure.</div></div></div>
+          <div class="rule"><div class="rule-num">4</div><div><div class="rule-text">Line shop always</div><div class="rule-sub">Half a point or 5 cents on odds compounds significantly.</div></div></div>
         </div>
-
         <div class="strategy-card full">
           <div class="sc-title">When to Trust Each Model</div>
-          <div class="sc-body" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
-            <div>
-              <div style="color:var(--accent);font-size:11px;margin-bottom:6px;letter-spacing:1px">MONEYLINE</div>
-              <div style="font-size:12px;color:var(--text)">Highest confidence when ELO diff &gt; 80, model consensus is true, and edge &gt; 5%. Best on medium-priced favourites (-120 to -160) where vig is manageable.</div>
-            </div>
-            <div>
-              <div style="color:var(--yellow);font-size:11px;margin-bottom:6px;letter-spacing:1px">SPREAD</div>
-              <div style="font-size:12px;color:var(--text)">Bet only when model projection differs from book by 4+ pts. Most profitable mid-season when rolling averages are stable. Avoid early October.</div>
-            </div>
-            <div>
-              <div style="color:var(--purple);font-size:11px;margin-bottom:6px;letter-spacing:1px">TOTALS</div>
-              <div style="font-size:12px;color:var(--text)">Best when pace proxies of both teams diverge significantly. Strong pace mismatch (fast vs slow team) creates mispricing. Avoid when B2B flags are active.</div>
-            </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;font-size:12px">
+            <div><div style="color:var(--accent);font-size:10px;letter-spacing:1px;margin-bottom:5px">MONEYLINE</div>Best when ELO diff &gt;80, consensus true, edge &gt;5%. Medium favourites (-120 to -160) have the best vig-to-edge ratio. Factor attribution should show at least 2 strong signals.</div>
+            <div><div style="color:var(--yellow);font-size:10px;letter-spacing:1px;margin-bottom:5px">SPREAD</div>Only when model differs from book by 4+ pts. Most reliable mid-season. Strongest when BPM and PER differentials align with rolling margin advantage.</div>
+            <div><div style="color:var(--purple);font-size:10px;letter-spacing:1px;margin-bottom:5px">TOTALS</div>Pace mismatch is the primary signal. Fast-vs-slow matchups are systematically mispriced. B2B fatigue suppresses totals — use under when B2B teams are involved.</div>
           </div>
         </div>
       </div>
 
-      <!-- Today's Optimal Strategy -->
-      <div class="section-title" style="margin-bottom:14px">
-        <span>TODAY'S OPTIMAL BETTING PLAN</span>
-        <span style="font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0">${games.length} games analysed</span>
-      </div>
-      ${!games.length
-        ? '<div class="no-data">No games today. Check back when games are scheduled.</div>'
-        : todayPlan.map(p => `
+      <div class="section-title">TODAY'S OPTIMAL BETTING PLAN <span style="font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0">${games.length} games</span></div>
+      ${!games.length?'<div class="no-data">No games today.</div>':
+        todayPlan.map(p=>`
           <div class="today-rec ${p.cls}">
             <div class="tr-header">
               <div class="tr-game">${p.matchup}</div>
-              <div class="tr-grade grade-pill-${p.grade}">${p.grade === 'PASS' ? 'NO BET' : 'GRADE ' + p.grade}</div>
+              <div class="grade-pill-${p.grade}">${p.grade==='PASS'?'NO BET':'GRADE '+p.grade}</div>
             </div>
             <div class="tr-action">${p.action}</div>
             <div class="tr-rationale">${p.rationale}</div>
           </div>`).join('')
       }
-
     `;
 
   } catch(e) {
-    container.innerHTML = `<div class="no-data">
-      Strategy data unavailable. Run the model first.<br>
-      <small style="opacity:0.5;margin-top:6px;display:block">${e.message}</small>
-    </div>`;
+    c.innerHTML = `<div class="no-data">Strategy unavailable. Run the model first.<br><small style="opacity:0.5">${e.message}</small></div>`;
   }
 }
 
