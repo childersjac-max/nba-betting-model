@@ -434,12 +434,13 @@ def run_backtest(games_df, model_ml, model_sp, model_tot, raw_df):
     # Calibration: bucket predictions into bins
     bins = [0.45, 0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 1.0]
     calibration = []
+    test_reset = test.reset_index(drop=True)
     for i in range(len(bins)-1):
         lo, hi  = bins[i], bins[i+1]
         mask    = (ml_probs >= lo) & (ml_probs < hi)
         if mask.sum() > 0:
             pred_avg = float(ml_probs[mask].mean())
-            act_rate = float(test.loc[mask.nonzero()[0],"home_win"].mean())
+            act_rate = float(test_reset.loc[mask, "home_win"].mean())
             calibration.append({
                 "bucket":    f"{lo:.0%}-{hi:.0%}",
                 "predicted": round(pred_avg, 3),
