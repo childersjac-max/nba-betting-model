@@ -866,43 +866,143 @@ def run_backtest(games_df, model_ml, model_sp, model_tot):
 
 
 # -----------------------------------------------------------------------------
-# 9. LIVE ODDS
+# 9. LIVE ODDS - best-line shopping + no-vig + line movement signal + CLV prep
 # -----------------------------------------------------------------------------
 
 def fetch_live_odds():
-    if not ODDS_API_KEY: return {}
-    print("[Odds] Fetching live lines...")
+    """
+    Fetch lines from ALL available US bookmakers.
+    For each game returns:
+      - Best available price per side (line shopping across books)
+      - Market consensus (average line = sharp money indicator)
+      - No-vig true implied probability (removes bookmaker juice)
+      - Book disagreement score (high spread = mispricing opportunity)
+      - Best book name to place each bet at
+    """
+    if not ODDS_API_KEY:
+        print("[Odds] No ODDS_API_KEY - skipping."); return {}
+
+    print("[Odds] Fetching live lines (all books, line shopping)...")
     try:
-        resp=requests.get("https://api.the-odds-api.com/v4/sports/basketball_nba/odds",
-                          params={"apiKey":ODDS_API_KEY,"regions":"us",
-                                  "markets":"h2h,spreads,totals","oddsFormat":"american",
-                                  "bookmakers":"draftkings,fanduel,betmgm"},timeout=15)
-        resp.raise_for_status(); data=resp.json()
+        resp = requests.get(
+            "https://api.the-odds-api.com/v4/sports/basketball_nba/odds",
+            params={
+                "apiKey":     ODDS_API_KEY,
+                "regions":    "us",
+                "markets":    "h2h,spreads,totals",
+                "oddsFormat": "american",
+            },
+            timeout=20,
+        )
+        resp.raise_for_status()
+        data = resp.json()
     except Exception as e:
         print(f"[Odds] Failed: {e}"); return {}
-    odds={}
+
+    odds = {}
     for game in data:
-        ha=TEAM_NAME_MAP.get(game.get("home_team","")); aa=TEAM_NAME_MAP.get(game.get("away_team",""))
-        if not ha or not aa: continue
-        best={"h2h_home":None,"h2h_away":None,"spread_home":None,
-              "spread_line":None,"total_over":None,"total_line":None}
-        for bm in game.get("bookmakers",[]):
-            for market in bm.get("markets",[]):
-                if market["key"]=="h2h":
+        ha = TEAM_NAME_MAP.get(game.get("home_team", ""))
+        aa = TEAM_NAME_MAP.get(game.get("away_team", ""))
+        if not ha or not aa:
+            continue
+
+        ml_home_list  = []   # [{"book": str, "odds": int}]
+        ml_away_list  = []
+        spread_h_list = []   # [{"book": str, "line": float, "odds": int}]
+        total_list    = []   # [{"book": str, "line": float, "odds": int}] (over side)
+
+        for bm in game.get("bookmakers", []):
+            bk = bm["key"]
+            for market in bm.get("markets", []):
+                if market["key"] == "h2h":
                     for o in market["outcomes"]:
-                        a=TEAM_NAME_MAP.get(o["name"])
-                        if a==ha and best["h2h_home"] is None: best["h2h_home"]=o["price"]
-                        elif a==aa and best["h2h_away"] is None: best["h2h_away"]=o["price"]
-                elif market["key"]=="spreads":
+                        abbr = TEAM_NAME_MAP.get(o["name"])
+                        if abbr == ha:
+                            ml_home_list.append({"book": bk, "odds": o["price"]})
+                        elif abbr == aa:
+                            ml_away_list.append({"book": bk, "odds": o["price"]})
+                elif market["key"] == "spreads":
                     for o in market["outcomes"]:
-                        if TEAM_NAME_MAP.get(o["name"])==ha and best["spread_home"] is None:
-                            best["spread_home"]=o["price"]; best["spread_line"]=o["point"]
-                elif market["key"]=="totals":
+                        if TEAM_NAME_MAP.get(o["name"]) == ha:
+                            spread_h_list.append({"book": bk, "line": o["point"], "odds": o["price"]})
+                elif market["key"] == "totals":
                     for o in market["outcomes"]:
-                        if o["name"]=="Over" and best["total_over"] is None:
-                            best["total_over"]=o["price"]; best["total_line"]=o["point"]
-        odds[(ha,aa)]=best
-    print(f"[Odds] {len(odds)} games with lines."); return odds
+                        if o["name"] == "Over":
+                            total_list.append({"book": bk, "line": o["point"], "odds": o["price"]})
+
+        if not ml_home_list and not ml_away_list:
+            continue
+
+        # --- BEST PRICE (highest American odds = best for bettor) ---
+        best_ml_h = max(ml_home_list, key=lambda x: x["odds"]) if ml_home_list else None
+        best_ml_a = max(ml_away_list, key=lambda x: x["odds"]) if ml_away_list else None
+
+        # --- MARKET CONSENSUS (average across books) ---
+        avg_ml_h = float(np.mean([x["odds"] for x in ml_home_list])) if ml_home_list else None
+        avg_ml_a = float(np.mean([x["odds"] for x in ml_away_list])) if ml_away_list else None
+
+        # --- NO-VIG TRUE PROBABILITY (removes juice from consensus line) ---
+        novig_h = novig_a = None
+        if avg_ml_h and avg_ml_a:
+            ph = to_prob(avg_ml_h); pa = to_prob(avg_ml_a)
+            total_imp = ph + pa
+            novig_h = ph / total_imp
+            novig_a = pa / total_imp
+
+        # --- LINE DISAGREEMENT (high = books uncertain = value opportunity) ---
+        ml_disagreement = (
+            max(x["odds"] for x in ml_home_list) - min(x["odds"] for x in ml_home_list)
+        ) if len(ml_home_list) > 1 else 0
+
+        # --- BEST SPREAD ---
+        # For home cover: want highest (least negative) line
+        best_sp_home = max(spread_h_list, key=lambda x: x["line"]) if spread_h_list else None
+        # For away cover: want lowest (most negative) line = easier for away
+        best_sp_away = min(spread_h_list, key=lambda x: x["line"]) if spread_h_list else None
+        avg_spread   = float(np.mean([x["line"] for x in spread_h_list])) if spread_h_list else None
+
+        # --- BEST TOTAL ---
+        # For over: want lowest total line
+        best_over  = min(total_list, key=lambda x: x["line"]) if total_list else None
+        # For under: want highest total line
+        best_under = max(total_list, key=lambda x: x["line"]) if total_list else None
+        avg_total  = float(np.mean([x["line"] for x in total_list])) if total_list else None
+
+        odds[(ha, aa)] = {
+            # Best available price per side
+            "h2h_home":          best_ml_h["odds"]      if best_ml_h    else None,
+            "h2h_away":          best_ml_a["odds"]      if best_ml_a    else None,
+            "h2h_home_book":     best_ml_h["book"]      if best_ml_h    else None,
+            "h2h_away_book":     best_ml_a["book"]      if best_ml_a    else None,
+            # Spread: best line for each side
+            "spread_line":       best_sp_home["line"]   if best_sp_home else None,
+            "spread_odds":       best_sp_home["odds"]   if best_sp_home else None,
+            "spread_line_away":  best_sp_away["line"]   if best_sp_away else None,
+            "spread_odds_away":  best_sp_away["odds"]   if best_sp_away else None,
+            "spread_book":       best_sp_home["book"]   if best_sp_home else None,
+            # Totals: best line for each side
+            "total_line_over":   best_over["line"]      if best_over    else None,
+            "total_odds_over":   best_over["odds"]      if best_over    else None,
+            "total_line_under":  best_under["line"]     if best_under   else None,
+            "total_odds_under":  best_under["odds"]     if best_under   else None,
+            "total_book_over":   best_over["book"]      if best_over    else None,
+            "total_book_under":  best_under["book"]     if best_under   else None,
+            # Market consensus (for CLV tracking and sharp signal)
+            "avg_ml_home":       round(avg_ml_h, 1)     if avg_ml_h     else None,
+            "avg_ml_away":       round(avg_ml_a, 1)     if avg_ml_a     else None,
+            "avg_spread_line":   round(avg_spread, 2)   if avg_spread   else None,
+            "avg_total_line":    round(avg_total, 2)    if avg_total    else None,
+            # No-vig true probabilities (key for accurate edge calculation)
+            "novig_home":        round(novig_h, 4)      if novig_h      else None,
+            "novig_away":        round(novig_a, 4)      if novig_a      else None,
+            # Book disagreement signal
+            "ml_disagreement":   round(ml_disagreement, 1),
+            "books_count":       len(game.get("bookmakers", [])),
+        }
+
+    n_books = max((v["books_count"] for v in odds.values()), default=0)
+    print(f"[Odds] {len(odds)} games with lines across up to {n_books} books.")
+    return odds
 
 
 # -----------------------------------------------------------------------------
@@ -929,66 +1029,283 @@ def ensemble_prob(lr_model,xgb_model,features,feat_row):
 
 
 def build_recommendations(hwp, pd_, pt, book_odds, factors, home, away):
-    recs=[]; book=book_odds or {}
-    boh=book.get("h2h_home"); boa=book.get("h2h_away")
-    bsl=book.get("spread_line"); btl=book.get("total_line")
-    top_factor_labels=[f["label"] for f in factors[:3]] if factors else []
+    """
+    Compare model probabilities against the best available sportsbook lines.
+
+    Key improvements over naive implementation:
+    1. Uses no-vig true probability (removes juice) for accurate edge calculation
+    2. Evaluates BOTH sides of every market independently
+    3. Uses best available price from line shopping, not just one book
+    4. Flags book disagreement as a signal (books uncertain = opportunity)
+    5. Requires edge vs no-vig probability, not raw implied probability
+    """
+    recs = []
+    book = book_odds or {}
+    top_factors = [f["label"] for f in factors[:3]] if factors else []
+
+    # ── Moneyline ──────────────────────────────────────────────────────────
+    boh = book.get("h2h_home")    # best available home ML odds
+    boa = book.get("h2h_away")    # best available away ML odds
+    novig_h = book.get("novig_home")   # true market probability (no vig)
+    novig_a = book.get("novig_away")
+    ml_disagreement = book.get("ml_disagreement", 0)
+    books_count     = book.get("books_count", 1)
+    home_book       = book.get("h2h_home_book", "")
+    away_book       = book.get("h2h_away_book", "")
 
     if boh and boa:
-        ih=to_prob(boh); ia=to_prob(boa)
-        for prob,edge_val,side,odds,label in [
-            (hwp,hwp-ih,"HOME",boh,f"{home} ML"),
-            (1-hwp,(1-hwp)-ia,"AWAY",boa,f"{away} ML"),
-        ]:
-            if edge_val>MIN_EDGE:
-                grade="A" if edge_val>0.06 else "B" if edge_val>0.04 else "C"
-                recs.append({"type":"ML","side":side,"odds":odds,
-                             "model_prob":round(prob,3),
-                             "book_prob":round(ih if side=="HOME" else ia,3),
-                             "edge":round(edge_val,3),
-                             "kelly_pct":round(kelly(prob,odds)*100,1),
-                             "grade":grade,"label":label,
-                             "reason":f"Model {prob:.1%} vs book {(ih if side=='HOME' else ia):.1%}",
-                             "top_factors":top_factor_labels})
+        # Use no-vig probability if available, else raw implied
+        true_h = novig_h if novig_h else to_prob(boh)
+        true_a = novig_a if novig_a else to_prob(boa)
 
-    if bsl is not None and pd_ is not None:
-        diff=pd_-bsl
-        if abs(diff)>=3:
-            side="HOME" if diff>0 else "AWAY"
-            sp_p=min(0.65,max(0.35,0.5+diff*0.025))
-            se=sp_p-to_prob(-110)
-            if se>MIN_EDGE:
-                grade="A" if abs(diff)>=6 else "B" if abs(diff)>=4 else "C"
-                recs.append({"type":"SPREAD","side":side,"odds":-110,
-                             "model_line":round(pd_,1),"book_line":bsl,
-                             "diff":round(diff,1),"edge":round(se,3),
-                             "kelly_pct":round(kelly(sp_p,-110)*100,1),
-                             "grade":grade,"label":f"{home if side=='HOME' else away} {bsl:+.1f}",
-                             "reason":f"Model {pd_:+.1f} vs book {bsl:+.1f} ({diff:+.1f} gap)",
-                             "top_factors":top_factor_labels})
+        # Evaluate HOME side
+        edge_h = hwp - true_h
+        if edge_h > MIN_EDGE:
+            grade = "A" if edge_h > 0.06 else "B" if edge_h > 0.04 else "C"
+            # Boost grade if books disagree (sharp signal)
+            if ml_disagreement > 10 and grade == "B":
+                grade = "A"
+            novig_note = f" (no-vig: {true_h:.1%})" if novig_h else ""
+            book_note  = f" @ {home_book.upper()}" if home_book else ""
+            recs.append({
+                "type":        "ML",
+                "side":        "HOME",
+                "odds":        boh,
+                "best_book":   home_book,
+                "model_prob":  round(hwp, 3),
+                "book_prob":   round(to_prob(boh), 3),
+                "novig_prob":  round(true_h, 3),
+                "edge":        round(edge_h, 3),
+                "kelly_pct":   round(kelly(hwp, boh) * 100, 1),
+                "grade":       grade,
+                "label":       f"{home} ML{book_note}",
+                "reason":      f"Model {hwp:.1%} vs market {true_h:.1%}{novig_note}",
+                "top_factors": top_factors,
+                "books_count": books_count,
+                "ml_disagreement": ml_disagreement,
+            })
 
-    if btl is not None and pt is not None:
-        diff=pt-btl
-        if abs(diff)>=3:
-            side="OVER" if diff>0 else "UNDER"
-            tp=min(0.65,max(0.35,0.5+diff*0.025))
-            te=tp-to_prob(-110)
-            if te>MIN_EDGE:
-                grade="A" if abs(diff)>=6 else "B" if abs(diff)>=4 else "C"
-                recs.append({"type":"TOTAL","side":side,"odds":-110,
-                             "model_line":round(pt,1),"book_line":btl,
-                             "diff":round(diff,1),"edge":round(te,3),
-                             "kelly_pct":round(kelly(tp,-110)*100,1),
-                             "grade":grade,"label":f"{side} {btl}",
-                             "reason":f"Model {pt:.1f} vs book {btl:.1f} ({diff:+.1f})",
-                             "top_factors":top_factor_labels})
+        # Evaluate AWAY side independently
+        awp    = 1 - hwp
+        edge_a = awp - true_a
+        if edge_a > MIN_EDGE:
+            grade = "A" if edge_a > 0.06 else "B" if edge_a > 0.04 else "C"
+            if ml_disagreement > 10 and grade == "B":
+                grade = "A"
+            novig_note = f" (no-vig: {true_a:.1%})" if novig_a else ""
+            book_note  = f" @ {away_book.upper()}" if away_book else ""
+            recs.append({
+                "type":        "ML",
+                "side":        "AWAY",
+                "odds":        boa,
+                "best_book":   away_book,
+                "model_prob":  round(awp, 3),
+                "book_prob":   round(to_prob(boa), 3),
+                "novig_prob":  round(true_a, 3),
+                "edge":        round(edge_a, 3),
+                "kelly_pct":   round(kelly(awp, boa) * 100, 1),
+                "grade":       grade,
+                "label":       f"{away} ML{book_note}",
+                "reason":      f"Model {awp:.1%} vs market {true_a:.1%}{novig_note}",
+                "top_factors": top_factors,
+                "books_count": books_count,
+                "ml_disagreement": ml_disagreement,
+            })
+
+    # ── Spread ──────────────────────────────────────────────────────────────
+    # Evaluate home cover using best home-cover line
+    bsl_h  = book.get("spread_line")        # best line for home cover
+    bso_h  = book.get("spread_odds", -110)
+    bsl_a  = book.get("spread_line_away")   # best line for away cover
+    bso_a  = book.get("spread_odds_away", -110)
+    sp_book = book.get("spread_book", "")
+    avg_sp  = book.get("avg_spread_line")
+
+    if bsl_h is not None and pd_ is not None:
+        # Home cover
+        diff_h = pd_ - bsl_h
+        if diff_h >= 3:  # model says home wins by more than the line
+            sp_p  = min(0.65, max(0.35, 0.5 + diff_h * 0.025))
+            se    = sp_p - to_prob(bso_h)
+            if se > MIN_EDGE:
+                grade = "A" if diff_h >= 6 else "B" if diff_h >= 4 else "C"
+                avg_note = f" (market avg: {avg_sp:+.1f})" if avg_sp else ""
+                recs.append({
+                    "type":        "SPREAD",
+                    "side":        "HOME",
+                    "odds":        bso_h,
+                    "best_book":   sp_book,
+                    "model_line":  round(pd_, 1),
+                    "book_line":   bsl_h,
+                    "diff":        round(diff_h, 1),
+                    "edge":        round(se, 3),
+                    "kelly_pct":   round(kelly(sp_p, bso_h) * 100, 1),
+                    "grade":       grade,
+                    "label":       f"{home} {bsl_h:+.1f}",
+                    "reason":      f"Model {pd_:+.1f} vs line {bsl_h:+.1f} ({diff_h:+.1f} gap){avg_note}",
+                    "top_factors": top_factors,
+                    "books_count": books_count,
+                })
+
+    if bsl_a is not None and pd_ is not None:
+        # Away cover: model margin is less than away cover line
+        diff_a = bsl_a - pd_   # positive = away more likely to cover
+        if diff_a >= 3:
+            sp_p  = min(0.65, max(0.35, 0.5 + diff_a * 0.025))
+            se    = sp_p - to_prob(bso_a if bso_a else -110)
+            if se > MIN_EDGE:
+                grade = "A" if diff_a >= 6 else "B" if diff_a >= 4 else "C"
+                away_sp_line = -bsl_a  # flip to away perspective
+                recs.append({
+                    "type":        "SPREAD",
+                    "side":        "AWAY",
+                    "odds":        bso_a if bso_a else -110,
+                    "best_book":   sp_book,
+                    "model_line":  round(pd_, 1),
+                    "book_line":   bsl_a,
+                    "diff":        round(diff_a, 1),
+                    "edge":        round(se, 3),
+                    "kelly_pct":   round(kelly(sp_p, bso_a if bso_a else -110) * 100, 1),
+                    "grade":       grade,
+                    "label":       f"{away} {away_sp_line:+.1f}",
+                    "reason":      f"Model margin {pd_:+.1f}, away covers {bsl_a:+.1f} ({diff_a:+.1f} edge)",
+                    "top_factors": top_factors,
+                    "books_count": books_count,
+                })
+
+    # ── Totals ───────────────────────────────────────────────────────────────
+    # Evaluate OVER using best over line (lowest total)
+    btl_over  = book.get("total_line_over")
+    bto_over  = book.get("total_odds_over",  -110)
+    # Evaluate UNDER using best under line (highest total)
+    btl_under = book.get("total_line_under")
+    bto_under = book.get("total_odds_under", -110)
+    tot_book  = book.get("total_book_over", "")
+    avg_tot   = book.get("avg_total_line")
+
+    if pt is not None:
+        # OVER: model says more points than the lowest available line
+        if btl_over is not None:
+            diff_o = pt - btl_over
+            if diff_o >= 3:
+                tp   = min(0.65, max(0.35, 0.5 + diff_o * 0.025))
+                te   = tp - to_prob(bto_over)
+                if te > MIN_EDGE:
+                    grade = "A" if diff_o >= 6 else "B" if diff_o >= 4 else "C"
+                    avg_note = f" (avg line: {avg_tot:.1f})" if avg_tot else ""
+                    recs.append({
+                        "type":        "TOTAL",
+                        "side":        "OVER",
+                        "odds":        bto_over,
+                        "best_book":   tot_book,
+                        "model_line":  round(pt, 1),
+                        "book_line":   btl_over,
+                        "diff":        round(diff_o, 1),
+                        "edge":        round(te, 3),
+                        "kelly_pct":   round(kelly(tp, bto_over) * 100, 1),
+                        "grade":       grade,
+                        "label":       f"OVER {btl_over}",
+                        "reason":      f"Model {pt:.1f} vs line {btl_over:.1f} ({diff_o:+.1f}){avg_note}",
+                        "top_factors": top_factors,
+                        "books_count": books_count,
+                    })
+
+        # UNDER: model says fewer points than the highest available line
+        if btl_under is not None:
+            diff_u = btl_under - pt
+            if diff_u >= 3:
+                up   = min(0.65, max(0.35, 0.5 + diff_u * 0.025))
+                ue   = up - to_prob(bto_under)
+                if ue > MIN_EDGE:
+                    grade = "A" if diff_u >= 6 else "B" if diff_u >= 4 else "C"
+                    recs.append({
+                        "type":        "TOTAL",
+                        "side":        "UNDER",
+                        "odds":        bto_under,
+                        "best_book":   book.get("total_book_under", ""),
+                        "model_line":  round(pt, 1),
+                        "book_line":   btl_under,
+                        "diff":        round(diff_u, 1),
+                        "edge":        round(ue, 3),
+                        "kelly_pct":   round(kelly(up, bto_under) * 100, 1),
+                        "grade":       grade,
+                        "label":       f"UNDER {btl_under}",
+                        "reason":      f"Model {pt:.1f} vs line {btl_under:.1f} ({diff_u:+.1f})",
+                        "top_factors": top_factors,
+                        "books_count": books_count,
+                    })
+
     return recs
 
 
 def load_bet_log():
     if os.path.exists(BET_LOG_PATH):
         with open(BET_LOG_PATH) as f: return json.load(f)
-    return {"bets":[],"summary":{}}
+    return {"bets": [], "summary": {}}
+
+
+def log_and_clv(matchup, rec, date_str, book_odds):
+    """
+    Log a flagged bet to bet_log.json.
+    Stores opening line for CLV tracking.
+    CLV = closing line value — did your line beat the final line?
+    Update closing_odds manually after game closes, or use a future automation.
+    """
+    log = load_bet_log()
+    bet_id = f"{date_str}_{matchup}_{rec['type']}_{rec['side']}".replace(" ", "_")
+    existing = {b["id"] for b in log["bets"]}
+    if bet_id in existing:
+        return
+
+    entry = {
+        "id":            bet_id,
+        "date":          date_str,
+        "matchup":       matchup,
+        "type":          rec["type"],
+        "side":          rec["side"],
+        "odds":          rec["odds"],
+        "best_book":     rec.get("best_book", ""),
+        "model_prob":    rec["model_prob"],
+        "novig_prob":    rec.get("novig_prob", rec["model_prob"]),
+        "edge":          rec["edge"],
+        "kelly_pct":     rec["kelly_pct"],
+        "grade":         rec["grade"],
+        "top_factors":   rec.get("top_factors", []),
+        # CLV tracking fields (fill in after game closes)
+        "result":        "PENDING",   # W / L / PUSH
+        "closing_odds":  None,         # fill in manually or automate
+        "clv":           None,         # closing_odds - opening odds (positive = beat the line)
+        # Market context at time of bet
+        "books_count":   rec.get("books_count", 0),
+        "ml_disagreement": rec.get("ml_disagreement", 0),
+        "avg_ml_home":   book_odds.get("avg_ml_home"),
+        "avg_ml_away":   book_odds.get("avg_ml_away"),
+        "avg_spread":    book_odds.get("avg_spread_line"),
+        "avg_total":     book_odds.get("avg_total_line"),
+    }
+    log["bets"].append(entry)
+
+    # Recompute summary
+    graded = [b for b in log["bets"] if b["result"] in ("W", "L")]
+    if graded:
+        wins = sum(1 for b in graded if b["result"] == "W")
+        # CLV average (only where available)
+        clv_bets = [b for b in graded if b.get("clv") is not None]
+        avg_clv  = float(np.mean([b["clv"] for b in clv_bets])) if clv_bets else None
+        log["summary"] = {
+            "total_bets":   len(graded),
+            "wins":         wins,
+            "losses":       len(graded) - wins,
+            "win_rate":     round(wins / len(graded), 3),
+            "avg_edge":     round(float(np.mean([b["edge"] for b in graded])), 3),
+            "avg_clv":      round(avg_clv, 2) if avg_clv is not None else None,
+            "pending_bets": sum(1 for b in log["bets"] if b["result"] == "PENDING"),
+            "grade_A_record": f"{sum(1 for b in graded if b.get('grade')=='A' and b['result']=='W')}-{sum(1 for b in graded if b.get('grade')=='A' and b['result']=='L')}",
+            "grade_B_record": f"{sum(1 for b in graded if b.get('grade')=='B' and b['result']=='W')}-{sum(1 for b in graded if b.get('grade')=='B' and b['result']=='L')}",
+        }
+
+    with open(BET_LOG_PATH, "w") as f:
+        json.dump(log, f, indent=2)
 
 
 # -----------------------------------------------------------------------------
@@ -1145,11 +1462,17 @@ if __name__=="__main__":
                 pred["game_time"]=g.get("time","TBD")
                 out["games"].append(pred); out["all_recs"].extend(pred["recommendations"])
                 ml=pred["moneyline"]; recs=pred["recommendations"]
+                today=datetime.now(timezone.utc).strftime("%Y-%m-%d")
                 print(f"\n  {pred['matchup']} | home {ml['home_win_prob']:.1%} away {ml['away_win_prob']:.1%}")
                 if recs:
                     for r in recs:
-                        print(f"  [{r['grade']}] {r['type']} {r['side']} edge={r['edge']:+.1%}")
+                        book_tag = f" @ {r['best_book'].upper()}" if r.get("best_book") else ""
+                        print(f"  [{r['grade']}] {r['type']} {r['side']}{book_tag} edge={r['edge']:+.1%} novig={r.get('novig_prob',r['model_prob']):.1%}")
                         print(f"      Factors: {', '.join(r.get('top_factors',[]))}")
+                        # Log bet with CLV tracking
+                        log_and_clv(pred['matchup'], r, today, book)
+                else:
+                    print(f"  No bets — no edge over book lines")
                 inj=pred.get("injuries",{})
                 if inj.get("home",{}).get("out"): print(f"  OUT ({home}): {inj['home']['out']}")
                 if inj.get("away",{}).get("out"): print(f"  OUT ({away}): {inj['away']['out']}")
