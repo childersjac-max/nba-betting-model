@@ -34,6 +34,7 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add predictions.json backtest.json bet_log.json
+          git add predictions.json backtest.json
+          [ -f bet_log.json ] && git add bet_log.json || true
           git diff --cached --quiet || git commit -m "auto: predictions $(date -u +%Y-%m-%d)"
           git push
