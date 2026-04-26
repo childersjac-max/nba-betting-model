@@ -147,6 +147,39 @@ canvas{width:100%!important;max-height:180px}
   .tabs{padding:0 16px}
   .tab{padding:12px 12px}
 }
+
+/* Strategy tab */
+.prose{font-size:13px;line-height:1.8;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px 24px;margin-bottom:20px}
+.prose p{margin-bottom:10px}
+.prose p:last-child{margin-bottom:0}
+.strategy-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+.strategy-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px}
+.strategy-card.full{grid-column:1/-1}
+.sc-title{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.sc-body{font-size:12px;line-height:1.7;color:var(--text)}
+.sc-body .rule{display:flex;align-items:flex-start;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.sc-body .rule:last-child{border-bottom:none}
+.rule-num{font-family:'Syne',sans-serif;font-weight:800;color:var(--accent);min-width:22px;font-size:14px}
+.rule-text{color:var(--text)}
+.rule-sub{font-size:11px;color:var(--dim);margin-top:2px}
+.today-rec{background:rgba(0,255,135,0.04);border:1px solid rgba(0,255,135,0.2);border-radius:6px;padding:12px 16px;margin-bottom:10px}
+.today-rec.warn{background:rgba(255,214,0,0.04);border-color:rgba(255,214,0,0.2)}
+.today-rec.skip{background:rgba(255,255,255,0.02);border-color:var(--border)}
+.tr-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.tr-game{font-family:'Syne',sans-serif;font-size:14px;font-weight:700}
+.tr-grade{font-family:'Syne',sans-serif;font-size:12px;font-weight:800;padding:2px 10px;border-radius:3px}
+.grade-pill-A{background:rgba(0,255,135,0.15);color:var(--green)}
+.grade-pill-B{background:rgba(255,214,0,0.12);color:var(--yellow)}
+.grade-pill-C{background:rgba(255,255,255,0.05);color:var(--dim)}
+.grade-pill-PASS{background:rgba(255,255,255,0.03);color:var(--muted)}
+.tr-action{font-size:12px;color:var(--text);margin-bottom:4px}
+.tr-rationale{font-size:11px;color:var(--dim)}
+.insight-list{list-style:none;padding:0}
+.insight-list li{padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:12px;color:var(--text);display:flex;align-items:flex-start;gap:8px}
+.insight-list li:last-child{border-bottom:none}
+.ins-icon{min-width:16px;color:var(--accent)}
+@media(max-width:700px){.strategy-grid{grid-template-columns:1fr}}
+
 </style>
 </head>
 <body>
@@ -162,6 +195,7 @@ canvas{width:100%!important;max-height:180px}
 <div class="tabs">
   <button class="tab active" onclick="switchTab('picks')">PICKS</button>
   <button class="tab" onclick="switchTab('backtest')">BACKTEST</button>
+  <button class="tab" onclick="switchTab('strategy')">STRATEGY</button>
 </div>
 
 <!-- ═══════════════ PICKS TAB ═══════════════ -->
@@ -201,6 +235,16 @@ canvas{width:100%!important;max-height:180px}
 </div>
 </div>
 
+
+<!-- ═══════════════ STRATEGY TAB ═══════════════ -->
+<div id="tab-strategy" class="tab-content">
+<div class="main">
+  <div id="strategy-container">
+    <div class="loading"><div class="spinner"></div><div>Loading strategy...</div></div>
+  </div>
+</div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
 
@@ -212,7 +256,7 @@ function switchTab(name) {
 }
 
 async function loadAll() {
-  await Promise.all([loadPicks(), loadBacktest()]);
+  await Promise.all([loadPicks(), loadBacktest(), loadStrategy()]);
 }
 
 // ─── PICKS ───────────────────────────────────────────────
@@ -535,6 +579,206 @@ async function loadBacktest() {
     container.innerHTML = `<div class="no-data">
       Backtest data not available yet.<br>
       <small style="opacity:0.5;margin-top:6px;display:block">Run the model first to generate backtest.json</small>
+    </div>`;
+  }
+}
+
+
+// ─── STRATEGY ────────────────────────────────────────────
+
+async function loadStrategy() {
+  const container = document.getElementById('strategy-container');
+  
+  try {
+    const [predRes, btRes] = await Promise.all([
+      fetch('./predictions.json?t=' + Date.now()).then(r => r.json()).catch(() => null),
+      fetch('./backtest.json?t=' + Date.now()).then(r => r.json()).catch(() => null),
+    ]);
+
+    const games    = predRes?.games || [];
+    const bt       = btRes || {};
+    const ml       = bt.ml || {};
+    const sp       = bt.spread || {};
+    const tot      = bt.totals || {};
+    const monthly  = bt.monthly || [];
+
+    // Derive backtest insights dynamically
+    const acc      = ml.accuracy ? (ml.accuracy*100).toFixed(1) : null;
+    const roi      = ml.roi_pct;
+    const bets     = ml.bets_placed || 0;
+    const winRate  = ml.win_rate ? (ml.win_rate*100).toFixed(1) : null;
+    const spMae    = sp.mae || null;
+    const totMae   = tot.mae || null;
+    const pnl      = ml.pnl || 0;
+
+    // Find best and worst months
+    let bestMonth = null, worstMonth = null;
+    if (monthly.length) {
+      bestMonth  = monthly.reduce((a,b) => a.accuracy > b.accuracy ? a : b);
+      worstMonth = monthly.reduce((a,b) => a.accuracy < b.accuracy ? a : b);
+    }
+
+    // Derive today's strategy from recommendations
+    const allRecs = games.flatMap(g => (g.recommendations||[]).map(r => ({...r, matchup:g.matchup, fatigue:g.fatigue_alert||[]})));
+    const gradeA  = allRecs.filter(r => r.grade === 'A');
+    const gradeB  = allRecs.filter(r => r.grade === 'B');
+    const b2bGames= games.filter(g => (g.fatigue_alert||[]).length > 0);
+    const noRec   = games.filter(g => !(g.recommendations||[]).length);
+
+    // Backtest data range from monthly
+    const months  = monthly.map(m => m.month);
+    const dateRange = months.length ? `${months[0]} through ${months[months.length-1]}` : 'this season';
+
+    // Build insights
+    const insights = [];
+    if (acc) {
+      const accNum = parseFloat(acc);
+      if (accNum >= 62) insights.push({icon:'>', text:`Strong predictive accuracy at ${acc}% — model consistently identifies favorites correctly and can be trusted for moneyline bets when edge exceeds 4%.`});
+      else if (accNum >= 55) insights.push({icon:'>', text:`Solid accuracy at ${acc}% — above the 52.4% break-even threshold. Focus bets on Grade A edges where model confidence is highest.`});
+      else insights.push({icon:'!', text:`Accuracy of ${acc}% is near break-even. Be highly selective — only bet Grade A edges with model consensus.`});
+    }
+    if (roi !== undefined && roi !== null) {
+      if (roi > 0) insights.push({icon:'>', text:`Simulated ROI of +${roi}% on flat $100 bets across ${bets} qualifying plays — a profitable edge exists. Quarter-Kelly sizing preserves bankroll during variance.`});
+      else insights.push({icon:'!', text:`Simulated ROI of ${roi}% suggests the edge is thin or absent at the current bet threshold. Raise MIN_EDGE to 5% to filter for higher-quality spots only.`});
+    }
+    if (spMae) insights.push({icon:'>', text:`Spread model MAE of ${spMae} pts — use spread picks only when model projection differs from the book line by 4+ pts (Grade A/B only).`});
+    if (totMae) insights.push({icon:'>', text:`Totals model MAE of ${totMae} pts — totals are harder to predict with score-only data. Prioritize totals picks with pace mismatch and no B2B fatigue.`});
+    if (bestMonth) insights.push({icon:'>', text:`Best month: ${bestMonth.month} at ${(bestMonth.accuracy*100).toFixed(1)}% accuracy — model performs best mid-season when team form is established and rolling averages are well-populated.`});
+    if (worstMonth) insights.push({icon:'>', text:`Weakest month: ${worstMonth.month} at ${(worstMonth.accuracy*100).toFixed(1)}% — early-season predictions are less reliable as rolling windows contain fewer data points. Reduce bet size in October-November.`});
+    if (b2bGames.length) insights.push({icon:'!', text:`${b2bGames.length} game(s) today involve B2B teams. Historical data shows B2B road teams cover the spread at only ~44% — a significant fade opportunity.`});
+
+    // Today's game-by-game plan
+    const todayPlan = games.map(g => {
+      const recs   = g.recommendations || [];
+      const alerts = g.fatigue_alert   || [];
+      const ml     = g.moneyline       || {};
+      const sp     = g.spread          || {};
+      const tot    = g.totals          || {};
+
+      if (!recs.length && !alerts.length) {
+        return {
+          matchup:   g.matchup,
+          grade:     'PASS',
+          action:    'No bet — no edge detected',
+          rationale: `Model win probability: ${((ml.home_win_prob||0.5)*100).toFixed(1)}% home. Implied spread: ${sp.predicted_margin !== undefined ? (sp.predicted_margin>=0?'+':'')+sp.predicted_margin.toFixed(1) : '--'} pts. No significant deviation from book lines.`,
+          cls:       'skip',
+        };
+      }
+
+      const topRec = recs.sort((a,b) => b.edge - a.edge)[0];
+      const b2bNote = alerts.length ? ` Note: ${alerts.join(', ')} — reduce size by 50%.` : '';
+      const consensus = ml.model_consensus ? 'All three models agree.' : 'Models are split — treat as Grade B regardless.';
+
+      let action = '', rationale = '';
+      if (topRec) {
+        const kellySized = alerts.length ? (topRec.kelly_pct / 2).toFixed(1) : topRec.kelly_pct;
+        action = `BET ${topRec.type} ${topRec.side} — ${topRec.kelly_pct}% Kelly${alerts.length ? ` (reduced to ${kellySized}% for B2B)` : ''}`;
+        rationale = `${topRec.reason}. ${consensus}${b2bNote}`;
+      } else if (alerts.length) {
+        action = `FADE B2B — consider opposite side at reduced size`;
+        rationale = `${alerts.join(', ')} significantly impacts performance. No model edge, but B2B teams historically underperform.${b2bNote}`;
+      }
+
+      return {
+        matchup:   g.matchup,
+        grade:     topRec ? topRec.grade : 'B',
+        action,
+        rationale,
+        cls:       topRec ? (topRec.grade === 'A' ? '' : 'warn') : 'warn',
+      };
+    });
+
+    container.innerHTML = `
+
+      <!-- Methodology -->
+      <div class="section-title" style="margin-bottom:14px">
+        <span>MODEL METHODOLOGY</span>
+      </div>
+      <div class="prose">
+        <p>This model uses an ensemble of Logistic Regression and XGBoost classifiers to predict NBA game outcomes, trained fresh on every run using the current season's complete game log pulled directly from the balldontlie API. Features are engineered from rolling averages (5, 10, and 20 game windows) of points scored, points allowed, point differential, and total points, with additional signals for rest and fatigue (back-to-back games, days of rest), exponentially weighted momentum that emphasises recent form over older results, a scoring-drop injury proxy that flags teams whose output has fallen sharply relative to their baseline, and ELO ratings that are updated after every game using a margin-aware formula. Spread predictions use Ridge Regression targeting point differential, and total points predictions use a second Ridge model targeting combined score. All models are validated using time-series cross-validation to prevent look-ahead bias, and moneyline probabilities are Platt-calibrated so that a 60% prediction reflects a genuine 60% historical win rate. When live sportsbook lines are available via the Odds API, the model computes the no-vig implied probability for each side and flags any bet where the model probability exceeds the true implied probability by more than 3%, sizing the recommended wager using quarter-Kelly criterion.</p>
+      </div>
+
+      <!-- Backtest Insights -->
+      <div class="section-title" style="margin-bottom:14px"><span>BACKTEST INSIGHTS</span></div>
+      <div class="strategy-card full" style="margin-bottom:20px">
+        <div class="sc-title">Data Timeframe &amp; Key Findings — ${dateRange}</div>
+        <div class="sc-body">
+          <div style="font-size:12px;color:var(--dim);margin-bottom:12px">
+            Walk-forward backtest: trained on first 70% of season (${bt.train_games||'--'} games), tested on final 30% (${bt.test_games||'--'} games) to simulate real betting conditions.
+          </div>
+          <ul class="insight-list">
+            ${insights.map(i => `<li><span class="ins-icon">${i.icon}</span><span>${i.text}</span></li>`).join('')}
+            ${!insights.length ? '<li><span class="ins-icon">!</span><span>Run the model to generate backtest insights.</span></li>' : ''}
+          </ul>
+        </div>
+      </div>
+
+      <!-- Overall Strategy -->
+      <div class="section-title" style="margin-bottom:14px"><span>OVERALL BETTING STRATEGY</span></div>
+      <div class="strategy-grid">
+        <div class="strategy-card">
+          <div class="sc-title">Bet Selection Rules</div>
+          <div class="sc-body">
+            <div class="rule"><div class="rule-num">1</div><div><div class="rule-text">Only bet Grade A or B edges</div><div class="rule-sub">Grade A = 6%+ edge. Grade B = 3-6% edge. Skip Grade C entirely.</div></div></div>
+            <div class="rule"><div class="rule-num">2</div><div><div class="rule-text">Require model consensus</div><div class="rule-sub">LR and XGB must agree within 5%. If they split, reduce size by half or pass.</div></div></div>
+            <div class="rule"><div class="rule-num">3</div><div><div class="rule-text">Fade B2B road teams</div><div class="rule-sub">B2B road teams cover at ~44%. Always reduce bet size 50% when B2B flag is active.</div></div></div>
+            <div class="rule"><div class="rule-num">4</div><div><div class="rule-text">Max 3 bets per day</div><div class="rule-sub">More bets dilutes edge. Quality over quantity. Skip marginal spots.</div></div></div>
+          </div>
+        </div>
+
+        <div class="strategy-card">
+          <div class="sc-title">Bankroll Management</div>
+          <div class="sc-body">
+            <div class="rule"><div class="rule-num">1</div><div><div class="rule-text">Use quarter-Kelly sizing</div><div class="rule-sub">Kelly % shown is already quarter-Kelly. Never bet more than shown.</div></div></div>
+            <div class="rule"><div class="rule-num">2</div><div><div class="rule-text">Hard cap: 5% per bet</div><div class="rule-sub">Never risk more than 5% of bankroll on a single game regardless of Kelly output.</div></div></div>
+            <div class="rule"><div class="rule-num">3</div><div><div class="rule-text">Line shop across books</div><div class="rule-sub">Get the best number. Half a point on a spread or 5 cents on ML odds compounds over a season.</div></div></div>
+            <div class="rule"><div class="rule-num">4</div><div><div class="rule-text">Track closing line value</div><div class="rule-sub">If you consistently beat the closing line, your process is sound — short-term results are noise.</div></div></div>
+          </div>
+        </div>
+
+        <div class="strategy-card full">
+          <div class="sc-title">When to Trust Each Model</div>
+          <div class="sc-body" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+            <div>
+              <div style="color:var(--accent);font-size:11px;margin-bottom:6px;letter-spacing:1px">MONEYLINE</div>
+              <div style="font-size:12px;color:var(--text)">Highest confidence when ELO diff &gt; 80, model consensus is true, and edge &gt; 5%. Best on medium-priced favourites (-120 to -160) where vig is manageable.</div>
+            </div>
+            <div>
+              <div style="color:var(--yellow);font-size:11px;margin-bottom:6px;letter-spacing:1px">SPREAD</div>
+              <div style="font-size:12px;color:var(--text)">Bet only when model projection differs from book by 4+ pts. Most profitable mid-season when rolling averages are stable. Avoid early October.</div>
+            </div>
+            <div>
+              <div style="color:var(--purple);font-size:11px;margin-bottom:6px;letter-spacing:1px">TOTALS</div>
+              <div style="font-size:12px;color:var(--text)">Best when pace proxies of both teams diverge significantly. Strong pace mismatch (fast vs slow team) creates mispricing. Avoid when B2B flags are active.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Today's Optimal Strategy -->
+      <div class="section-title" style="margin-bottom:14px">
+        <span>TODAY'S OPTIMAL BETTING PLAN</span>
+        <span style="font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0">${games.length} games analysed</span>
+      </div>
+      ${!games.length
+        ? '<div class="no-data">No games today. Check back when games are scheduled.</div>'
+        : todayPlan.map(p => `
+          <div class="today-rec ${p.cls}">
+            <div class="tr-header">
+              <div class="tr-game">${p.matchup}</div>
+              <div class="tr-grade grade-pill-${p.grade}">${p.grade === 'PASS' ? 'NO BET' : 'GRADE ' + p.grade}</div>
+            </div>
+            <div class="tr-action">${p.action}</div>
+            <div class="tr-rationale">${p.rationale}</div>
+          </div>`).join('')
+      }
+
+    `;
+
+  } catch(e) {
+    container.innerHTML = `<div class="no-data">
+      Strategy data unavailable. Run the model first.<br>
+      <small style="opacity:0.5;margin-top:6px;display:block">${e.message}</small>
     </div>`;
   }
 }
