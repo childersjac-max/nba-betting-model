@@ -1,7 +1,8 @@
 {
-  "generated_at": "2026-04-26T11:35:15.105915Z",
+  "generated_at": "2026-04-26T12:33:17.364332Z",
   "test_games": 325,
   "train_games": 757,
+  "has_player_data": false,
   "ml": {
     "accuracy": 0.692,
     "bets_placed": 274,
@@ -187,6 +188,68 @@
       "games": 214,
       "accuracy": 0.692,
       "avg_prob": 0.549
+    }
+  ],
+  "feature_importance": [
+    {
+      "feature": "diff_point_diff_roll10",
+      "label": "10-game margin edge",
+      "importance": 0.089
+    },
+    {
+      "feature": "elo_win_prob",
+      "label": "ELO win probability",
+      "importance": 0.0871
+    },
+    {
+      "feature": "elo_diff",
+      "label": "ELO rating advantage",
+      "importance": 0.0827
+    },
+    {
+      "feature": "diff_point_diff_ewm",
+      "label": "Scoring trend",
+      "importance": 0.0561
+    },
+    {
+      "feature": "home_is_b2b",
+      "label": "Home B2B fatigue",
+      "importance": 0.0507
+    },
+    {
+      "feature": "away_is_b2b",
+      "label": "Away B2B fatigue",
+      "importance": 0.0503
+    },
+    {
+      "feature": "diff_days_rest",
+      "label": "Rest advantage",
+      "importance": 0.0491
+    },
+    {
+      "feature": "away_win_rate10",
+      "label": "away_win_rate10",
+      "importance": 0.0453
+    },
+    {
+      "feature": "home_win_rate10",
+      "label": "home_win_rate10",
+      "importance": 0.0442
+    },
+    {
+      "feature": "diff_pts_for_roll10",
+      "label": "Scoring advantage",
+      "importance": 0.0434
+    },
+    {
+      "feature": "diff_win_ewm",
+      "label": "Exponential momentum",
+      "importance": 0.0422
+    },
+    {
+      "feature": "away_inj_signal",
+      "label": "away_inj_signal",
+      "importance": 0.0416
     }
   ]
 }
