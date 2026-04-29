@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-28T18:09:19.195719Z",
+  "generated_at": "2026-04-29T17:21:17.620436Z",
   "model_version": "edge-v5",
   "has_player_data": true,
   "has_injury_data": false,
@@ -11,7 +11,7 @@
   },
   "games": [],
   "all_recs": [],
-  "has_live_odds": true,
+  "has_live_odds": false,
   "bet_log_summary": {},
   "pending_bets": []
 }
