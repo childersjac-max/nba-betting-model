@@ -76,6 +76,8 @@ TEAM_NAME_MAP = {
     "Portland Trail Blazers":"POR","Sacramento Kings":"SAC","San Antonio Spurs":"SAS",
     "Toronto Raptors":"TOR","Utah Jazz":"UTA","Washington Wizards":"WAS",
 }
+# Reverse: abbreviation → full name (used to match OpticOdds full team names)
+ABBR_TO_NAME = {v: k for k, v in TEAM_NAME_MAP.items()}
 
 # ---------------------------------------------------------------------------
 # 1.  BALLDONTLIE — Game data (multi-season)
@@ -1380,10 +1382,15 @@ class NBABettingModel:
         games_out, all_recs = [], []
         for g in upcoming:
             home, away = g["home"], g["away"]
+            # BDL gives abbreviations (e.g. "ATL"); odds keys use full names
+            # ("Atlanta Hawks vs New York Knicks"). Try full name first, then abbr.
+            home_full = ABBR_TO_NAME.get(home, home)
+            away_full = ABBR_TO_NAME.get(away, away)
             book_odds  = None
             for key, odds in all_odds.items():
                 kl = key.lower()
-                if home.lower() in kl and away.lower() in kl:
+                if (home_full.lower() in kl and away_full.lower() in kl) or \
+                   (home.lower() in kl and away.lower() in kl):
                     book_odds = odds
                     break
             try:
