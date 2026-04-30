@@ -741,29 +741,47 @@ def build_game_features(df):
     """
     Pivot per-team rows into one row per game.
     Adds diff_ = home_feat - away_feat for every feature column.
+
+    Note: build_team_logs renames home_team→team, away_team→opponent.
+    We restore home_team / away_team here for downstream compatibility.
     """
     feat_cols = [c for c in df.columns if any(x in c for x in [
         "_roll", "win_rate", "ewm", "momentum", "net_rtg",
         "off_rtg", "def_rtg", "pace", "scoring",
         "days_rest", "is_b2b", "_trend",
     ])]
-    base = [c for c in ["game_id","date","season","home_team","away_team",
-                        "point_diff","total_pts","home_win"]
-            if c in df.columns]
+
+    outcome_cols = [c for c in ["game_id", "date", "season",
+                                "point_diff", "total_pts", "home_win"]
+                    if c in df.columns]
 
     h = df[df["home"] == 1].copy()
     a = df[df["home"] == 0].copy()
 
-    hf = h[base + feat_cols].rename(
-        columns={c: f"home_{c}" for c in feat_cols})
-    af = a[["date","team"] + feat_cols].rename(
-        columns={"team": "away_team_check",
-                 **{c: f"away_{c}" for c in feat_cols}})
+    # Home rows: grab outcome cols + team/opponent names + features
+    h_sel = outcome_cols + ["team", "opponent"] + [c for c in feat_cols if c in h.columns]
+    hf = h[[c for c in h_sel if c in h.columns]].rename(
+        columns={"team": "home_team", "opponent": "away_team",
+                 **{c: f"home_{c}" for c in feat_cols if c in h.columns}})
 
-    games = hf.merge(af,
-                     left_on=["date", "away_team"],
-                     right_on=["date", "away_team_check"],
-                     how="inner").drop(columns=["away_team_check"], errors="ignore")
+    # Away rows: just game_id + team name + features (outcome cols come from home)
+    a_sel = [c for c in ["game_id", "team"] if c in a.columns] + \
+            [c for c in feat_cols if c in a.columns]
+    af = a[[c for c in a_sel if c in a.columns]].rename(
+        columns={"team": "away_team_check",
+                 **{c: f"away_{c}" for c in feat_cols if c in a.columns}})
+
+    # Merge on game_id (unique per game; more robust than date+team)
+    if "game_id" in hf.columns and "game_id" in af.columns:
+        games = hf.merge(af, on="game_id", how="inner")
+    else:
+        # Fallback: merge on date + away_team name
+        games = hf.merge(af,
+                         left_on=["date", "away_team"],
+                         right_on=["date", "away_team_check"],
+                         how="inner")
+
+    games = games.drop(columns=["away_team_check"], errors="ignore")
 
     for col in feat_cols:
         hc, ac = f"home_{col}", f"away_{col}"
