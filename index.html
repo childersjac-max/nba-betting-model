@@ -630,15 +630,15 @@ async function loadStrategy() {
     ]);
 
     const games    = pred?.games || [];
-    const allRecs  = pred?.all_recs || [];
     const ms       = pred?.model_stats || {};
-    const fi       = pred?.feature_importance || bt?.feature_importance || [];
+    const fi       = bt?.feature_importance || [];
     const ml       = bt?.ml || {};
     const monthly  = bt?.monthly || [];
 
-    const acc      = ms.backtest_accuracy ? (ms.backtest_accuracy*100).toFixed(1) : null;
+    const acc      = ml.accuracy ? (ml.accuracy*100).toFixed(1) : null;
     const accNum   = parseFloat(acc||0);
-    const trainGms = pred?.train_games || bt?.train_games || '--';
+    const trainGms = bt?.train_games || '--';
+    const allRecs  = games.flatMap(g => g.recommendations || []);
 
     // Today's game plan
     const todayPlan = games.map(g => {
@@ -810,9 +810,9 @@ async function loadStrategy() {
               <div style="font-size:10px;color:var(--dim);margin-top:2px">Holdout season test</div>
             </div>
             <div style="text-align:center">
-              <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--accent)">${ms.backtest_auc ? ms.backtest_auc.toFixed(3) : '--'}</div>
-              <div style="font-size:10px;color:var(--dim);margin-top:4px;letter-spacing:1px">AUC SCORE</div>
-              <div style="font-size:10px;color:var(--dim);margin-top:2px">0.72+ is excellent for NBA</div>
+              <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--accent)">${ms.ml_xgb_auc ? ms.ml_xgb_auc.toFixed(3) : ms.ml_lr_auc ? ms.ml_lr_auc.toFixed(3) : '--'}</div>
+              <div style="font-size:10px;color:var(--dim);margin-top:4px;letter-spacing:1px">XGB AUC SCORE</div>
+              <div style="font-size:10px;color:var(--dim);margin-top:2px">0.70+ is excellent for NBA</div>
             </div>
             <div style="text-align:center">
               <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--green)">${gradeAToday}</div>
@@ -820,7 +820,7 @@ async function loadStrategy() {
               <div style="font-size:10px;color:var(--dim);margin-top:2px">6%+ edge vs Pinnacle</div>
             </div>
             <div style="text-align:center">
-              <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--yellow)">${ms.sharp_book_used==='pinnacle'?'Pinnacle':'None'}</div>
+              <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--yellow)">Pinnacle</div>
               <div style="font-size:10px;color:var(--dim);margin-top:4px;letter-spacing:1px">NO-VIG BASELINE</div>
               <div style="font-size:10px;color:var(--dim);margin-top:2px">Sharp book used for edge calc</div>
             </div>
