@@ -1,17 +1,102 @@
 {
-  "generated_at": "2026-04-29T17:21:17.620436Z",
-  "model_version": "edge-v5",
+  "generated_at": "2026-04-30T19:09:26.520046+00:00",
+  "model_version": "v6-rebuild",
+  "train_seasons": [
+    2021,
+    2022,
+    2023,
+    2024
+  ],
+  "train_games": 5283,
   "has_player_data": true,
-  "has_injury_data": false,
+  "has_live_odds": true,
   "model_stats": {
-    "ml_lr_auc": 0.714,
-    "ml_xgb_auc": 0.661,
-    "spread_mae": 11.59,
-    "totals_mae": 14.83
+    "ml_lr_auc": 0.691,
+    "ml_xgb_auc": 0.674,
+    "backtest_auc": 0.721,
+    "backtest_accuracy": 0.671,
+    "backtest_brier": 0.212,
+    "sharp_book_used": "pinnacle"
   },
+  "feature_importance": [
+    {
+      "feature": "elo_diff",
+      "label": "ELO advantage",
+      "importance": 0.113
+    },
+    {
+      "feature": "elo_win_prob",
+      "label": "ELO win probability",
+      "importance": 0.0964
+    },
+    {
+      "feature": "diff_def_rtg_roll10",
+      "label": "Defensive edge",
+      "importance": 0.0614
+    },
+    {
+      "feature": "diff_days_rest",
+      "label": "Rest advantage",
+      "importance": 0.0384
+    },
+    {
+      "feature": "home_is_b2b",
+      "label": "Home B2B fatigue",
+      "importance": 0.0369
+    },
+    {
+      "feature": "diff_win_rate5",
+      "label": "diff_win_rate5",
+      "importance": 0.0342
+    },
+    {
+      "feature": "diff_net_rtg_ewm",
+      "label": "Net rating trend",
+      "importance": 0.0341
+    },
+    {
+      "feature": "diff_point_diff_roll10",
+      "label": "10g margin edge",
+      "importance": 0.0341
+    },
+    {
+      "feature": "diff_off_rtg_roll10",
+      "label": "Offensive edge",
+      "importance": 0.032
+    },
+    {
+      "feature": "away_is_b2b",
+      "label": "Away B2B fatigue",
+      "importance": 0.0319
+    },
+    {
+      "feature": "diff_point_diff_ewm",
+      "label": "Scoring trend",
+      "importance": 0.0316
+    },
+    {
+      "feature": "home_net_rtg_roll10",
+      "label": "home_net_rtg_roll10",
+      "importance": 0.031
+    },
+    {
+      "feature": "diff_net_rtg_trend",
+      "label": "Form vs baseline",
+      "importance": 0.0304
+    },
+    {
+      "feature": "diff_net_rtg_roll10",
+      "label": "Net rating edge (10g)",
+      "importance": 0.0303
+    },
+    {
+      "feature": "diff_win_rate10",
+      "label": "Win rate edge",
+      "importance": 0.0298
+    }
+  ],
   "games": [],
   "all_recs": [],
-  "has_live_odds": false,
   "bet_log_summary": {},
   "pending_bets": []
 }
