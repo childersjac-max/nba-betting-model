@@ -101,6 +101,10 @@ def bdl_get(endpoint, params=None):
                     print(f"  Rate limited — waiting {wait}s...")
                     time.sleep(wait)
                     continue
+                if r.status_code == 401:
+                    raise requests.HTTPError(
+                        f"401 Unauthorized — check BDL API key or tier access",
+                        response=r)
                 r.raise_for_status()
                 break
             except requests.RequestException as e:
@@ -636,6 +640,9 @@ def fetch_odds_opticodds():
                            "pinnacle_away": pa})
 
         if bd:
+            # Store the fixture date so the fallback scheduler can use it
+            raw_dt = meta.get("start_date") or meta.get("start_time") or ""
+            bd["date"] = raw_dt[:10] if raw_dt else datetime.now(timezone.utc).strftime("%Y-%m-%d")
             result[key] = bd
 
     print(f"[Odds-OpticOdds] Parsed odds for {len(result)} games.")
@@ -1393,8 +1400,23 @@ class NBABettingModel:
         # Injuries
         injury_report = fetch_injuries_bdl()
 
-        # Upcoming games
+        # Upcoming games — try BDL schedule first, fall back to OpticOdds fixtures
         upcoming = fetch_upcoming_games()
+        if not upcoming and all_odds:
+            print("[Upcoming] BDL returned 0 games — deriving schedule from OpticOdds fixtures.")
+            for key, odds in all_odds.items():
+                if " vs " not in key:
+                    continue
+                home_full, away_full = key.split(" vs ", 1)
+                home_abbr = TEAM_NAME_MAP.get(home_full, home_full)
+                away_abbr = TEAM_NAME_MAP.get(away_full, away_full)
+                upcoming.append({
+                    "home": home_abbr,
+                    "away": away_abbr,
+                    "date": odds.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+                    "time": "TBD",
+                })
+            print(f"[Upcoming] {len(upcoming)} games from OpticOdds fallback.")
         print(f"\n[Predictions] Generating for {len(upcoming)} upcoming games...")
 
         games_out, all_recs = [], []
