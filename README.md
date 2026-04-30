@@ -1,12 +1,35 @@
 # NBA Betting Model
 
-Automated NBA betting model covering moneyline, spread, totals, and player props.  
-Retrains daily via GitHub Actions and commits fresh predictions to `predictions.json`.
+Automated NBA moneyline edge-finding model. Retrains daily via GitHub Actions
+and commits fresh picks to `predictions.json`.
+
+## What it does
+
+- Pulls 4 seasons of NBA game data (~4,400 games) from BallDontLie
+- Builds walk-forward rolling features (no data leakage)
+- Computes per-game offensive/defensive/net rating from scores
+- Trains a Logistic Regression + XGBoost ensemble on game-only features
+- Augments current predictions with player stats and injury data
+- Compares model probability to Pinnacle (sharpest book) no-vig line
+- Flags bets where model edge > 3% and grades them A/B/C
+- Tracks Closing Line Value (CLV) for real edge validation
 
 ## Stack
-- **Data**: `sportsreference` (basketball-reference.com)
-- **Models**: Logistic Regression + XGBoost (moneyline), Ridge Regression (spread/totals)
-- **Sizing**: Fractional Kelly criterion (quarter-Kelly)
+
+- **Game data**: BallDontLie API (multi-season)
+- **Player data**: api.server.nbaapi.com (free, current season)
+- **Injuries**: BallDontLie injury endpoint
+- **Odds**: The Odds API + OpticOdds (OddsJam) — multi-book, Pinnacle no-vig
+- **Models**: Logistic Regression + XGBoost (moneyline)
+- **Sizing**: Quarter-Kelly criterion
+
+## Required GitHub Secrets
+
+| Secret | Where to get it |
+|---|---|
+| `BALLDONTLIE_API_KEY` | balldontlie.io — upgrade to paid for multi-season history |
+| `ODDS_API_KEY` | the-odds-api.com |
+| `OPTICODDS_KEY` | opticodds.com (formerly OddsJam) |
 
 ## Setup
 
@@ -15,47 +38,82 @@ pip install -r requirements.txt
 python nba_betting_model.py
 ```
 
-## Updating upcoming games
-
-Edit the `UPCOMING_GAMES` list in `nba_betting_model.py`:
-
-```python
-UPCOMING_GAMES = [
-    ("BOS", "NYK", -155, -4.5, 224.5),  # home, away, ML odds, spread, total
-    ("OKC", "DEN", -180, -5.5, 221.0),
-]
-```
-
-Use 3-letter sportsreference abbreviations (same as basketball-reference.com).
-
 ## Automation
 
-The GitHub Actions workflow (`.github/workflows/retrain.yml`) runs daily at 12:00 UTC.  
-Trigger a manual run anytime: **Actions → Retrain NBA Model → Run workflow**.
+GitHub Actions runs daily at 12:00 UTC (`retrain.yml`).
+Manual trigger: **Actions → Retrain NBA Model → Run workflow**.
 
 ## Output
 
-`predictions.json` is written to the repo root after every run. Example:
+`predictions.json` — one entry per upcoming game:
 
 ```json
 {
-  "season": 2025,
-  "generated_at": "2025-04-23T12:00:00Z",
-  "games": [
+  "matchup": "BOS vs NYK",
+  "home_win_prob": 0.617,
+  "away_win_prob": 0.383,
+  "has_live_odds": true,
+  "has_sharp_novig": true,
+  "recommendations": [
     {
-      "matchup": "BOS vs NYK",
-      "moneyline": { "home_win_prob": 0.612, "home_bet": { "edge": 0.047, "bet": true } },
-      "spread":    { "predicted_margin": 4.8 },
-      "totals":    { "predicted_total": 223.1, "over_bet": { "edge": -0.01, "bet": false } }
+      "type": "ML",
+      "side": "HOME",
+      "team": "BOS",
+      "odds": -148,
+      "best_book": "draftkings",
+      "model_prob": 0.617,
+      "novig_prob": 0.571,
+      "edge": 0.046,
+      "kelly_pct": 2.1,
+      "grade": "B",
+      "label": "BOS ML"
     }
   ]
 }
 ```
 
-## Tuning
+`backtest.json` — walk-forward backtest results (honest, no lookahead):
 
-| Config var | Location | Default | Notes |
-|---|---|---|---|
-| `MIN_EDGE` | top of script | `0.03` | Raise to 0.05+ to be more selective |
-| `KELLY_FRACTION` | top of script | `0.25` | Never go above 0.5 |
-| `SEASON` | top of script | `2025` | Year the season ends in |
+```json
+{
+  "test_games": 1100,
+  "accuracy": 0.672,
+  "auc": 0.718,
+  "brier": 0.231,
+  "flat_bet": { "bets_placed": 380, "win_rate": 0.571, "roi_pct": 3.2 }
+}
+```
+
+`bet_log.json` — every flagged bet with CLV tracking fields.
+
+## Key Config
+
+| Variable | Default | Notes |
+|---|---|---|
+| `TRAIN_SEASONS` | `[2021,2022,2023,2024]` | Requires paid BDL plan for history |
+| `MIN_EDGE` | `0.03` | Raise to 0.05+ to be more selective |
+| `KELLY_FRACTION` | `0.25` | Never go above 0.5 |
+| `SHARP_BOOKS` | `["pinnacle",...]` | Priority order for no-vig baseline |
+
+## Edge Grading
+
+| Grade | Edge vs no-vig |
+|---|---|
+| A | > 6% |
+| B | 4 – 6% |
+| C | 3 – 4% |
+
+## CLV Tracking
+
+After each game resolves, manually update `bet_log.json`:
+
+```json
+{
+  "result": "W",
+  "closing_odds": -160,
+  "clv": 12
+}
+```
+
+Positive CLV means you got better odds than the market closed at — the
+most reliable long-term signal that your model has a genuine edge.
