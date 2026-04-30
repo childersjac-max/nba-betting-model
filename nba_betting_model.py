@@ -1,17 +1,23 @@
 """
-NBA Betting Model - Edge Edition v5
-=====================================
-Data sources (all work in GitHub Actions):
-  - balldontlie API      : game scores, upcoming games
-  - api.server.nbaapi.com: player stats (pts/reb/ast/FG%/3P%/+- etc) - FREE, no auth
-  - nbainjuries package  : official NBA injury reports (Out/Questionable/Doubtful)
-  - The Odds API         : live sportsbook lines (optional, free tier)
+NBA Betting Model - v6 (Full Rebuild)
+======================================
+Key improvements over v5:
+  1. Multi-season training: 4 seasons (~4,400 games) for stable patterns
+  2. Walk-forward features: every feature uses ONLY data prior to each game
+  3. Per-game efficiency metrics: off/def/net rating derived from scores (no extra API)
+  4. Player data used ONLY for current predictions — eliminates backtest leakage
+  5. Proper walk-forward backtest across chronological seasons
+  6. Pinnacle-anchored edge: sharpest sportsbook used as no-vig benchmark
+  7. OpticOdds (OddsJam) integration for multi-book comparison + historical lines
+  8. Moneyline only by default (spread/totals disabled until MAE < 7 pts)
+  9. Closing Line Value (CLV) tracking for real edge validation
+ 10. Playoffs supported — works year-round
 
-Enhanced with:
-  - Player-level stats: pts/reb/ast/tov/FG%/3P%/FT%/+- /min trends
-  - Injury reports: Out/Questionable players with impact scoring
-  - Coach rotation trends: minutes concentration, starter load
-  - Factor attribution: top reasons why a bet is flagged
+Data Sources:
+  - BallDontLie (game scores, injuries, standings)
+  - api.server.nbaapi.com (player season stats + advanced — free, no auth)
+  - The Odds API (current multi-book odds)
+  - OpticOdds / OddsJam API (current + historical odds, closing lines)
 """
 
 import warnings
@@ -20,56 +26,44 @@ warnings.filterwarnings("ignore")
 import json, os, time, requests
 import pandas as pd
 import numpy as np
-from datetime import datetime, timezone, timedelta
-
-from sklearn.linear_model import LogisticRegression, Ridge
+from datetime import datetime, timezone
+from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import TimeSeriesSplit, cross_val_score
 from sklearn.pipeline import Pipeline
 from sklearn.calibration import CalibratedClassifierCV
+from sklearn.metrics import roc_auc_score, brier_score_loss
 import xgboost as xgb
 
-try:
-    from nbainjuries import injury as nba_injury
-    HAS_INJURY_PKG = True
-except ImportError:
-    HAS_INJURY_PKG = False
-    print("[Injuries] nbainjuries package not installed - skipping injury data")
-
-
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # CONFIG
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 
-API_KEY       = os.environ["BALLDONTLIE_API_KEY"]
+BDL_KEY       = os.environ["BALLDONTLIE_API_KEY"]
 ODDS_API_KEY  = os.environ.get("ODDS_API_KEY", "")
-BASE_URL      = "https://api.balldontlie.io/nba/v1"
-NBAAPI_URL    = "https://api.server.nbaapi.com/api"
-HEADERS       = {"Authorization": API_KEY}
-SEASON        = 2024       # balldontlie season (2024 = 2024-25)
-NBAAPI_SEASON = 2025       # nbaapi.com season (year season ends)
+OPTICODDS_KEY = os.environ.get("OPTICODDS_KEY", "")   # OpticOdds / OddsJam
 
-MIN_EDGE       = 0.03
-KELLY_FRACTION = 0.25
-API_DELAY      = 1.5
+BDL_BASE    = "https://api.balldontlie.io/nba/v1"
+BDL_HEADERS = {"Authorization": BDL_KEY}
+
+# Seasons to train on.  Each entry = year the season STARTS (2022 = 2022-23).
+# Free BDL tier: current season only.  Paid tiers unlock historical seasons.
+TRAIN_SEASONS  = [2021, 2022, 2023, 2024]
+CURRENT_SEASON = 2024        # BDL parameter for the current/latest season
+NBAAPI_SEASON  = 2025        # nbaapi.com uses ending year (2025 = 2024-25)
+
+MIN_EDGE       = 0.03        # minimum edge vs no-vig to flag a bet
+KELLY_FRACTION = 0.25        # quarter-Kelly for bet sizing safety
+API_DELAY      = 1.2         # seconds between BDL requests
 MAX_RETRIES    = 6
 
-BET_LOG_PATH      = os.path.join(os.path.dirname(__file__), "bet_log.json")
-BACKTEST_LOG_PATH = os.path.join(os.path.dirname(__file__), "backtest.json")
+BACKTEST_PATH = os.path.join(os.path.dirname(__file__), "backtest.json")
+PRED_PATH     = os.path.join(os.path.dirname(__file__), "predictions.json")
+BET_LOG_PATH  = os.path.join(os.path.dirname(__file__), "bet_log.json")
 
-# Player impact weights for lineup quality score
-STAT_WEIGHTS = {
-    "points":    0.30,
-    "plus_minus":0.25,
-    "assists":   0.12,
-    "rebounds":  0.10,
-    "fg_pct":    0.10,
-    "fg3_pct":   0.08,
-    "steals":    0.03,
-    "blocks":    0.02,
-}
+# Sharp books — used for no-vig baseline (Pinnacle is the most efficient market)
+SHARP_BOOKS = ["pinnacle", "circa", "betcris", "betonlineag"]
 
-# NBA team name -> abbreviation map for injury matching
 TEAM_NAME_MAP = {
     "Atlanta Hawks":"ATL","Boston Celtics":"BOS","Brooklyn Nets":"BKN",
     "Charlotte Hornets":"CHA","Chicago Bulls":"CHI","Cleveland Cavaliers":"CLE",
@@ -83,72 +77,97 @@ TEAM_NAME_MAP = {
     "Toronto Raptors":"TOR","Utah Jazz":"UTA","Washington Wizards":"WAS",
 }
 
+# ---------------------------------------------------------------------------
+# 1.  BALLDONTLIE — Game data (multi-season)
+# ---------------------------------------------------------------------------
 
-# -----------------------------------------------------------------------------
-# 1. GAME DATA - balldontlie
-# -----------------------------------------------------------------------------
-
-def bdl_get(endpoint, params={}):
+def bdl_get(endpoint, params=None):
+    """Paginated GET with retry + rate-limit handling."""
     results = []
-    params  = {**params, "per_page": 100}
-    cursor  = None
+    p = {**(params or {}), "per_page": 100}
+    cursor = None
     while True:
         if cursor:
-            params["cursor"] = cursor
+            p["cursor"] = cursor
         for attempt in range(MAX_RETRIES):
             time.sleep(API_DELAY)
             try:
-                resp = requests.get(f"{BASE_URL}/{endpoint}", headers=HEADERS,
-                                    params=params, timeout=30)
-                if resp.status_code == 429:
-                    wait = 15 * (attempt + 1)
-                    print(f"  Rate limited - waiting {wait}s...")
+                r = requests.get(f"{BDL_BASE}/{endpoint}",
+                                 headers=BDL_HEADERS, params=p, timeout=30)
+                if r.status_code == 429:
+                    wait = 20 * (attempt + 1)
+                    print(f"  Rate limited — waiting {wait}s...")
                     time.sleep(wait)
                     continue
-                resp.raise_for_status()
+                r.raise_for_status()
                 break
-            except requests.exceptions.RequestException:
+            except requests.RequestException as e:
                 if attempt == MAX_RETRIES - 1:
                     raise
+                print(f"  Retry {attempt+1}: {e}")
                 time.sleep(15)
-        data   = resp.json()
+        data = r.json()
         results.extend(data["data"])
         cursor = data.get("meta", {}).get("next_cursor")
         if not cursor:
             break
-        print(f"  {len(results)} records fetched...")
+        print(f"    {len(results)} records...")
     return results
 
 
-def fetch_games(season=SEASON):
-    print(f"[Data] Fetching {season}-{str(season+1)[-2:]} game scores...")
-    raw  = bdl_get("games", {"seasons[]": season, "postseason": "false"})
+def fetch_games(seasons=None):
+    """Fetch completed game results for one or more seasons."""
+    if seasons is None:
+        seasons = TRAIN_SEASONS
+    print(f"[Games] Fetching {len(seasons)} season(s): {seasons}")
     rows = []
-    for g in raw:
-        if g["status"] != "Final":
-            continue
-        rows.append({
-            "game_id":    g["id"],
-            "date":       g["date"][:10],
-            "home_team":  g["home_team"]["abbreviation"],
-            "away_team":  g["visitor_team"]["abbreviation"],
-            "home_score": g["home_team_score"],
-            "away_score": g["visitor_team_score"],
-        })
+    for season in seasons:
+        raw = bdl_get("games", {"seasons[]": season})
+        before = len(rows)
+        for g in raw:
+            if g["status"] != "Final":
+                continue
+            rows.append({
+                "game_id":    g["id"],
+                "season":     season,
+                "date":       g["date"][:10],
+                "home_team":  g["home_team"]["abbreviation"],
+                "away_team":  g["visitor_team"]["abbreviation"],
+                "home_score": g["home_team_score"],
+                "away_score": g["visitor_team_score"],
+            })
+        print(f"  Season {season}: {len(rows)-before} completed games")
+
     df = pd.DataFrame(rows)
+    if df.empty:
+        raise RuntimeError("No game data returned. Check API key and season parameters.")
+
     df["date"]       = pd.to_datetime(df["date"])
     df["point_diff"] = df["home_score"] - df["away_score"]
     df["total_pts"]  = df["home_score"] + df["away_score"]
     df["home_win"]   = (df["point_diff"] > 0).astype(int)
-    print(f"[Data] {len(df)} completed games.")
-    return df.sort_values("date").reset_index(drop=True)
+
+    # Per-game efficiency proxies — derived from scores, no extra API calls needed.
+    # off_rtg = share of total points scored = offensive efficiency relative to pace.
+    # net_rtg = off_rtg - def_rtg  (positive = team dominated scoring exchange)
+    df["pace_proxy"]   = df["total_pts"]
+    df["home_off_rtg"] = df["home_score"] / df["total_pts"] * 100
+    df["home_def_rtg"] = df["away_score"] / df["total_pts"] * 100
+    df["home_net_rtg"] = df["home_off_rtg"] - df["home_def_rtg"]
+    df["away_off_rtg"] = df["home_def_rtg"]
+    df["away_def_rtg"] = df["home_off_rtg"]
+    df["away_net_rtg"] = -df["home_net_rtg"]
+
+    df = df.sort_values("date").reset_index(drop=True)
+    print(f"[Games] Total: {len(df)} completed games across {len(seasons)} season(s).")
+    return df
 
 
-def fetch_upcoming_games(season=SEASON):
-    print("[Data] Fetching upcoming games...")
+def fetch_upcoming_games():
+    """Fetch today's and future unplayed games."""
+    print("[Upcoming] Fetching schedule...")
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    raw   = bdl_get("games", {"seasons[]": season, "postseason": "false",
-                               "start_date": today})
+    raw = bdl_get("games", {"seasons[]": CURRENT_SEASON, "start_date": today})
     upcoming = []
     for g in raw:
         if g["status"] == "Final":
@@ -159,613 +178,882 @@ def fetch_upcoming_games(season=SEASON):
             "date": g["date"][:10],
             "time": g.get("status", "TBD"),
         })
-    print(f"[Data] {len(upcoming)} upcoming games.")
+    print(f"[Upcoming] {len(upcoming)} upcoming games.")
     return upcoming
 
 
-# -----------------------------------------------------------------------------
-# 2. PLAYER STATS - api.server.nbaapi.com (free, no auth, works in CI)
-# -----------------------------------------------------------------------------
-
-def fetch_player_totals(season=NBAAPI_SEASON, page_size=100):
-    """
-    Fetch per-game player stats from community NBA API.
-    Returns DataFrame with all players' season averages.
-    Includes: pts, reb, ast, tov, stl, blk, fg%, 3p%, ft%, +/-, min, games
-    """
-    print(f"[Players] Fetching player totals from nbaapi.com (season {season})...")
-    all_players = []
-    page = 1
-
-    while True:
-        try:
-            time.sleep(0.3)
-            resp = requests.get(
-                f"{NBAAPI_URL}/playertotals",
-                params={"season": season, "page": page,
-                        "pageSize": page_size, "isPlayoff": "false"},
-                timeout=20,
-            )
-            if resp.status_code != 200:
-                print(f"  [Players] HTTP {resp.status_code} on page {page}, stopping.")
-                break
-            data = resp.json()
-            players = data.get("data", [])
-            if not players:
-                break
-            all_players.extend(players)
-            total_pages = data.get("pagination", {}).get("pages", 1)
-            print(f"  Players: {len(all_players)} / page {page} of {total_pages}")
-            if page >= total_pages:
-                break
-            page += 1
-        except Exception as e:
-            print(f"  [Players] Error page {page}: {e}")
-            break
-
-    if not all_players:
-        print("[Players] No player data retrieved.")
-        return pd.DataFrame()
-
-    df = pd.DataFrame(all_players)
-    print(f"[Players] {len(df)} players loaded.")
-    return df
-
-
-def fetch_player_advanced(season=NBAAPI_SEASON):
-    """
-    Fetch advanced stats: PER, TS%, usage%, win shares, VORP, BPM.
-    """
-    print(f"[Players] Fetching advanced stats (season {season})...")
-    all_players = []
-    page = 1
-
-    while True:
-        try:
-            time.sleep(0.3)
-            resp = requests.get(
-                f"{NBAAPI_URL}/playeradvancedstats",
-                params={"season": season, "page": page,
-                        "pageSize": 100, "isPlayoff": "false"},
-                timeout=20,
-            )
-            if resp.status_code != 200:
-                break
-            data    = resp.json()
-            players = data.get("data", [])
-            if not players:
-                break
-            all_players.extend(players)
-            total_pages = data.get("pagination", {}).get("pages", 1)
-            if page >= total_pages:
-                break
-            page += 1
-        except Exception as e:
-            print(f"  [Advanced] Error: {e}")
-            break
-
-    if not all_players:
-        return pd.DataFrame()
-
-    df = pd.DataFrame(all_players)
-    print(f"[Players] {len(df)} advanced player rows loaded.")
-    return df
-
-
-def build_team_player_profiles(totals_df, advanced_df):
-    """
-    Merge totals + advanced stats and compute team-level features.
-    Returns dict keyed by team abbreviation.
-    """
-    if totals_df.empty:
-        return {}
-
-    # Standardise column names from nbaapi.com
-    rename_tot = {
-        "playerName":    "name",
-        "team":          "team",
-        "games":         "games",
-        "minutesPg":     "min",
-        "points":        "pts",
-        "totalRb":       "reb",
-        "assists":       "ast",
-        "steals":        "stl",
-        "blocks":        "blk",
-        "turnovers":     "tov",
-        "fieldPercent":  "fg_pct",
-        "threePercent":  "fg3_pct",
-        "ftPercent":     "ft_pct",
-        "personalFouls": "fouls",
-    }
-    df = totals_df.rename(columns={k:v for k,v in rename_tot.items() if k in totals_df.columns})
-
-    # Merge advanced if available
-    if not advanced_df.empty:
-        adv_rename = {
-            "playerName": "name", "team": "team",
-            "per": "per", "tsPercent": "ts_pct",
-            "usagePercent": "usage_pct", "winShares": "win_shares",
-            "vorp": "vorp", "box": "bpm",
-        }
-        adv = advanced_df.rename(columns={k:v for k,v in adv_rename.items()
-                                           if k in advanced_df.columns})
-        adv_cols = ["name","team"] + [c for c in ["per","ts_pct","usage_pct",
-                                                    "win_shares","vorp","bpm"]
-                                       if c in adv.columns]
-        df = df.merge(adv[adv_cols], on=["name","team"], how="left")
-
-    # Filter to players with meaningful minutes (>= 8 min/game)
-    if "min" in df.columns:
-        df = df[df["min"] >= 8].copy()
-
-    # Numeric coercion
-    num_cols = ["min","pts","reb","ast","stl","blk","tov","fg_pct","fg3_pct",
-                "ft_pct","fouls","games","per","ts_pct","usage_pct","win_shares","vorp","bpm"]
-    for col in num_cols:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
-
-    # Build team profiles
-    profiles = {}
-    for team, grp in df.groupby("team"):
-        grp = grp.sort_values("min", ascending=False)
-        top8 = grp.head(8)
-        if len(top8) == 0:
-            continue
-
-        total_min = top8["min"].sum() or 1
-
-        # Weighted plus/minus (we don't have +/- in totals, use win_shares as proxy)
-        ws_col  = "win_shares" if "win_shares" in top8.columns else None
-        pm_score = float(top8[ws_col].sum()) if ws_col else 0.0
-
-        # Lineup quality score (composite)
-        quality = 0.0
-        for stat, weight in STAT_WEIGHTS.items():
-            col = {"points":"pts","plus_minus":ws_col or "pts",
-                   "assists":"ast","rebounds":"reb",
-                   "fg_pct":"fg_pct","fg3_pct":"fg3_pct",
-                   "steals":"stl","blocks":"blk"}.get(stat)
-            if col and col in top8.columns:
-                quality += float(top8[col].mean()) * weight
-
-        # Minutes concentration (Herfindahl)
-        shares = (top8["min"] / total_min).values
-        hhi    = float(np.sum(shares**2))
-
-        # Rotation stress: starters averaging >34 min
-        starters      = top8.head(5)
-        heavy_load    = int((starters["min"] > 34).sum())
-        rotation_stress = heavy_load / 5
-
-        # Usage skew (high = team relies on 1-2 stars)
-        usage_skew = float(top8["usage_pct"].std()) if "usage_pct" in top8.columns else 0
-
-        # Advanced metrics
-        team_per    = float(top8["per"].mean())        if "per"        in top8.columns else 15.0
-        team_ts     = float(top8["ts_pct"].mean())     if "ts_pct"     in top8.columns else 0.55
-        team_usage  = float(top8["usage_pct"].mean())  if "usage_pct"  in top8.columns else 20.0
-        team_vorp   = float(top8["vorp"].sum())        if "vorp"       in top8.columns else 0.0
-        team_bpm    = float(top8["bpm"].mean())        if "bpm"        in top8.columns else 0.0
-
-        # Shooting
-        team_fg  = float(top8["fg_pct"].mean())  if "fg_pct"  in top8.columns else 0.45
-        team_3p  = float(top8["fg3_pct"].mean()) if "fg3_pct" in top8.columns else 0.35
-        team_ft  = float(top8["ft_pct"].mean())  if "ft_pct"  in top8.columns else 0.75
-        team_tov = float(top8["tov"].mean())     if "tov"     in top8.columns else 2.5
-        team_ast = float(top8["ast"].mean())     if "ast"     in top8.columns else 3.0
-        team_pts = float(top8["pts"].mean())     if "pts"     in top8.columns else 10.0
-
-        profiles[team] = {
-            "quality_score":    round(quality, 3),
-            "win_shares_total": round(pm_score, 2),
-            "lineup_hhi":       round(hhi, 3),
-            "lineup_depth":     round(1 - hhi, 3),
-            "rotation_stress":  round(rotation_stress, 3),
-            "usage_skew":       round(usage_skew, 3),
-            "team_per":         round(team_per, 2),
-            "team_ts_pct":      round(team_ts, 3),
-            "team_usage":       round(team_usage, 2),
-            "team_vorp":        round(team_vorp, 2),
-            "team_bpm":         round(team_bpm, 2),
-            "fg_pct":           round(team_fg, 3),
-            "fg3_pct":          round(team_3p, 3),
-            "ft_pct":           round(team_ft, 3),
-            "avg_tov":          round(team_tov, 2),
-            "avg_ast":          round(team_ast, 2),
-            "avg_pts_per_player": round(team_pts, 2),
-            # Top players for display
-            "top_players": [
-                {
-                    "name":  row.get("name",""),
-                    "min":   round(float(row.get("min",0)), 1),
-                    "pts":   round(float(row.get("pts",0)), 1),
-                    "reb":   round(float(row.get("reb",0)), 1),
-                    "ast":   round(float(row.get("ast",0)), 1),
-                    "fg_pct":round(float(row.get("fg_pct",0)), 3),
-                    "fg3_pct":round(float(row.get("fg3_pct",0)), 3),
-                    "tov":   round(float(row.get("tov",0)), 1),
-                    "per":   round(float(row.get("per",0)), 1),
-                    "vorp":  round(float(row.get("vorp",0)), 2),
-                }
-                for _, row in top8.iterrows()
-            ],
-        }
-
-    print(f"[Players] Built profiles for {len(profiles)} teams.")
-    return profiles
-
-
-# -----------------------------------------------------------------------------
-# 3. INJURY REPORTS - nbainjuries package (official NBA data, works in CI)
-# -----------------------------------------------------------------------------
-
-def fetch_injury_report():
-    """
-    Fetch today's official NBA injury report.
-    Returns dict: {team_abbr: [{"player": name, "status": Out/Questionable, "reason": ...}]}
-    """
-    if not HAS_INJURY_PKG:
-        return {}
-
-    print("[Injuries] Fetching official NBA injury report...")
+def fetch_injuries_bdl():
+    """Fetch current injury report from BallDontLie (replaces nbainjuries package)."""
+    print("[Injuries] Fetching from BallDontLie...")
     try:
-        now    = datetime.now()
-        report = nba_injury.get_reportdata(now, return_df=False)
-        if not report:
-            print("[Injuries] No injury data for current time.")
-            return {}
-
+        raw = bdl_get("player_injuries")
         injuries = {}
-        for entry in report:
-            team_full = entry.get("Team", "")
-            abbr      = TEAM_NAME_MAP.get(team_full)
+        for entry in raw:
+            abbr  = (entry.get("team") or {}).get("abbreviation", "")
             if not abbr:
                 continue
-            player = entry.get("Player Name", "")
-            status = entry.get("Current Status", "")
-            reason = entry.get("Reason", "")
+            first = (entry.get("player") or {}).get("first_name", "")
+            last  = (entry.get("player") or {}).get("last_name", "")
+            status = entry.get("status", "")
             if abbr not in injuries:
                 injuries[abbr] = []
             injuries[abbr].append({
-                "player": player,
-                "status": status,
-                "reason": reason,
-                "is_out": status.upper() in ("OUT", "INACTIVE", "SUSPENSION"),
+                "player":          f"{first} {last}".strip(),
+                "status":          status,
+                "is_out":          status.upper() in ("OUT", "INACTIVE", "SUSPENSION"),
                 "is_questionable": "QUESTIONABLE" in status.upper(),
             })
-
         total = sum(len(v) for v in injuries.values())
-        print(f"[Injuries] {total} player statuses loaded across {len(injuries)} teams.")
+        print(f"[Injuries] {total} statuses across {len(injuries)} teams.")
         return injuries
-
     except Exception as e:
         print(f"[Injuries] Error: {e}")
         return {}
 
+# ---------------------------------------------------------------------------
+# 2.  PLAYER STATS — nbaapi.com (current predictions only, NOT backtest)
+# ---------------------------------------------------------------------------
+
+NBAAPI_URL = "https://api.server.nbaapi.com/api"
+
+
+def fetch_player_totals(season=NBAAPI_SEASON):
+    print(f"[Players] Fetching totals (season {season})...")
+    all_players, page = [], 1
+    while True:
+        try:
+            time.sleep(0.4)
+            r = requests.get(f"{NBAAPI_URL}/playertotals",
+                             params={"season": season, "page": page,
+                                     "pageSize": 100, "isPlayoff": "false"},
+                             timeout=20)
+            if r.status_code != 200:
+                break
+            data = r.json()
+            players = data.get("data", [])
+            if not players:
+                break
+            all_players.extend(players)
+            total_pages = data.get("pagination", {}).get("pages", 1)
+            print(f"  {len(all_players)} players / page {page}/{total_pages}")
+            if page >= total_pages:
+                break
+            page += 1
+        except Exception as e:
+            print(f"  Error page {page}: {e}")
+            break
+    return pd.DataFrame(all_players)
+
+
+def fetch_player_advanced(season=NBAAPI_SEASON):
+    print(f"[Players] Fetching advanced stats (season {season})...")
+    all_players, page = [], 1
+    while True:
+        try:
+            time.sleep(0.4)
+            r = requests.get(f"{NBAAPI_URL}/playeradvancedstats",
+                             params={"season": season, "page": page,
+                                     "pageSize": 100, "isPlayoff": "false"},
+                             timeout=20)
+            if r.status_code != 200:
+                break
+            data = r.json()
+            players = data.get("data", [])
+            if not players:
+                break
+            all_players.extend(players)
+            total_pages = data.get("pagination", {}).get("pages", 1)
+            if page >= total_pages:
+                break
+            page += 1
+        except Exception as e:
+            print(f"  Error: {e}")
+            break
+    return pd.DataFrame(all_players)
+
+
+def build_team_player_profiles(totals_df, advanced_df):
+    """
+    Team-level player quality scores from season averages.
+    Used ONLY for forward predictions, never backtest features.
+    """
+    if totals_df.empty:
+        return {}
+    rename = {
+        "playerName":"name","team":"team","games":"games","minutesPg":"min",
+        "points":"pts","totalRb":"reb","assists":"ast","steals":"stl",
+        "blocks":"blk","turnovers":"tov","fieldPercent":"fg_pct",
+        "threePercent":"fg3_pct","ftPercent":"ft_pct",
+    }
+    df = totals_df.rename(columns={k:v for k,v in rename.items() if k in totals_df.columns})
+    if not advanced_df.empty:
+        adv = advanced_df.rename(columns={
+            "playerName":"name","team":"team","per":"per","tsPercent":"ts_pct",
+            "usagePercent":"usage_pct","winShares":"win_shares",
+            "vorp":"vorp","box":"bpm",
+        })
+        acols = ["name","team"] + [c for c in
+                 ["per","ts_pct","usage_pct","win_shares","vorp","bpm"]
+                 if c in adv.columns]
+        df = df.merge(adv[acols], on=["name","team"], how="left")
+    if "min" in df.columns:
+        df = df[df["min"] >= 8].copy()
+    num_cols = ["min","pts","reb","ast","stl","blk","tov","fg_pct","fg3_pct","ft_pct",
+                "games","per","ts_pct","usage_pct","win_shares","vorp","bpm"]
+    for col in num_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+    profiles = {}
+    for team, grp in df.groupby("team"):
+        grp = grp.sort_values("min", ascending=False)
+        top8 = grp.head(8)
+        if top8.empty:
+            continue
+        total_min = top8["min"].sum() or 1
+        def sm(col): return float(top8[col].mean()) if col in top8.columns else 0.0
+        def ss(col): return float(top8[col].sum())  if col in top8.columns else 0.0
+        shares = (top8["min"] / total_min).values
+        hhi = float(np.sum(shares**2))
+        heavy = int((top8.head(5)["min"] > 34).sum()) if "min" in top8.columns else 0
+        profiles[team] = {
+            "quality_score":   round(sm("pts")*0.35 + sm("reb")*0.10 +
+                                     sm("ast")*0.15 + sm("fg_pct")*10 +
+                                     sm("fg3_pct")*8, 3),
+            "team_bpm":        round(sm("bpm"), 2),
+            "team_vorp":       round(ss("vorp"), 2),
+            "team_per":        round(sm("per"), 2),
+            "team_ts_pct":     round(sm("ts_pct"), 3),
+            "fg_pct":          round(sm("fg_pct"), 3),
+            "fg3_pct":         round(sm("fg3_pct"), 3),
+            "ft_pct":          round(sm("ft_pct"), 3),
+            "avg_tov":         round(sm("tov"), 2),
+            "lineup_depth":    round(1 - hhi, 3),
+            "rotation_stress": round(heavy / 5, 3),
+            "top_players": [
+                {"name": row.get("name",""),
+                 "min":    round(float(row.get("min",0)),1),
+                 "pts":    round(float(row.get("pts",0)),1),
+                 "reb":    round(float(row.get("reb",0)),1),
+                 "ast":    round(float(row.get("ast",0)),1),
+                 "fg_pct": round(float(row.get("fg_pct",0)),3),
+                 "fg3_pct":round(float(row.get("fg3_pct",0)),3),
+                 "tov":    round(float(row.get("tov",0)),1),
+                 "per":    round(float(row.get("per",0)),1),
+                 "vorp":   round(float(row.get("vorp",0)),2)}
+                for _, row in top8.iterrows()
+            ],
+        }
+    print(f"[Players] Built profiles for {len(profiles)} teams.")
+    return profiles
+
 
 def compute_injury_impact(team_abbr, injury_report, player_profiles):
-    """
-    Score the impact of injuries on a team using player quality data.
-    Returns:
-      - injury_impact_score: 0-1 (higher = worse for the team)
-      - out_players: list of confirmed out players
-      - questionable_players: list of questionable players
-      - star_out: bool (top 2 player is out)
-    """
-    out_players  = []
-    q_players    = []
-    star_out     = False
-
-    team_injuries = injury_report.get(team_abbr, [])
-    for inj in team_injuries:
+    out_players, q_players = [], []
+    for inj in injury_report.get(team_abbr, []):
         if inj["is_out"]:
             out_players.append(inj["player"])
         elif inj["is_questionable"]:
             q_players.append(inj["player"])
-
-    # Cross-reference with player profiles to estimate impact
-    impact_score = 0.0
+    impact, star_out = 0.0, False
     if player_profiles and team_abbr in player_profiles:
-        top_players = player_profiles[team_abbr].get("top_players", [])
-        if top_players:
-            total_pts = sum(p["pts"] for p in top_players) or 1
-            # Check if any top players are out/questionable
-            for i, player in enumerate(top_players[:8]):
+        top = player_profiles[team_abbr].get("top_players", [])
+        if top:
+            total_pts = sum(p["pts"] for p in top) or 1
+            for i, player in enumerate(top[:8]):
                 pname = player["name"].lower()
-                for out_p in out_players:
-                    last = out_p.split(",")[0].strip().lower() if "," in out_p else out_p.split()[-1].lower()
-                    if last in pname or pname in out_p.lower():
-                        # Weight by scoring share
-                        share = player["pts"] / total_pts
-                        impact_score += share * 1.0  # full impact if out
+                for op in out_players:
+                    last = op.split()[-1].lower()
+                    if last in pname or pname in op.lower():
+                        impact += player["pts"] / total_pts
                         if i < 2:
                             star_out = True
-                for q_p in q_players:
-                    last = q_p.split(",")[0].strip().lower() if "," in q_p else q_p.split()[-1].lower()
-                    if last in pname or pname in q_p.lower():
-                        share = player["pts"] / total_pts
-                        impact_score += share * 0.4  # partial impact if questionable
-
+                for qp in q_players:
+                    last = qp.split()[-1].lower()
+                    if last in pname or pname in qp.lower():
+                        impact += player["pts"] / total_pts * 0.4
     return {
-        "impact_score":        round(min(impact_score, 1.0), 3),
-        "out_players":         out_players,
+        "impact_score":       round(min(impact, 1.0), 3),
+        "out_players":        out_players,
         "questionable_players": q_players,
-        "star_out":            star_out,
-        "total_missing":       len(out_players) + len(q_players),
+        "star_out":           star_out,
+        "total_missing":      len(out_players) + len(q_players),
     }
 
+# ---------------------------------------------------------------------------
+# 3.  ODDS FETCHING
+# ---------------------------------------------------------------------------
 
-# -----------------------------------------------------------------------------
-# 4. GAME LOG FEATURES
-# -----------------------------------------------------------------------------
+def _to_prob(american_odds):
+    if american_odds > 0:
+        return 100 / (american_odds + 100)
+    return abs(american_odds) / (abs(american_odds) + 100)
+
+
+def _novig_from_book(book_data, market_key, home, away):
+    for mkt in book_data.get("markets", []):
+        if mkt["key"] != market_key:
+            continue
+        prices = {}
+        for oc in mkt["outcomes"]:
+            if oc["name"] == home:
+                prices["home"] = _to_prob(oc["price"])
+            else:
+                prices["away"] = _to_prob(oc["price"])
+        if "home" in prices and "away" in prices:
+            total = prices["home"] + prices["away"]
+            return {"home": round(prices["home"]/total, 4),
+                    "away": round(prices["away"]/total, 4)}
+    return {}
+
+
+def fetch_odds_theapi():
+    """Current NBA odds from The Odds API across all major US books."""
+    if not ODDS_API_KEY:
+        print("[Odds-TheAPI] No key — skipping.")
+        return {}
+    print("[Odds-TheAPI] Fetching current NBA odds...")
+    try:
+        r = requests.get(
+            "https://api.the-odds-api.com/v4/sports/basketball_nba/odds",
+            params={
+                "apiKey": ODDS_API_KEY,
+                "regions": "us,us2",
+                "markets": "h2h,spreads,totals",
+                "oddsFormat": "american",
+                "bookmakers": ",".join([
+                    "pinnacle","draftkings","fanduel","betmgm","caesars",
+                    "betonlineag","mybookieag","bovada","williamhill_us",
+                    "pointsbet","barstool","betrivers","unibet_us",
+                ]),
+            },
+            timeout=15,
+        )
+        r.raise_for_status()
+        games = r.json()
+        remaining = r.headers.get("x-requests-remaining", "?")
+        print(f"[Odds-TheAPI] {len(games)} games. Remaining API credits: {remaining}")
+        return _parse_theapi_odds(games)
+    except Exception as e:
+        print(f"[Odds-TheAPI] Error: {e}")
+        return {}
+
+
+def _parse_theapi_odds(games):
+    result = {}
+    for g in games:
+        home  = g.get("home_team", "")
+        away  = g.get("away_team", "")
+        key   = f"{home} vs {away}"
+        books = {b["key"]: b for b in g.get("bookmakers", [])}
+
+        sharp_book = next((sb for sb in SHARP_BOOKS if sb in books), None)
+        if not sharp_book and books:
+            sharp_book = list(books.keys())[0]
+
+        bd = {}
+
+        # --- Moneyline ---
+        all_h2h_home, all_h2h_away = [], []
+        for bkey, bdata in books.items():
+            for mkt in bdata.get("markets", []):
+                if mkt["key"] != "h2h":
+                    continue
+                for oc in mkt["outcomes"]:
+                    if oc["name"] == home:
+                        all_h2h_home.append((bkey, oc["price"]))
+                    else:
+                        all_h2h_away.append((bkey, oc["price"]))
+
+        if all_h2h_home and all_h2h_away:
+            def best_odds(odds_list):
+                return max(odds_list,
+                           key=lambda x: x[1] if x[1] > 0 else 10000 / abs(x[1]))
+            bh = best_odds(all_h2h_home)
+            ba = best_odds(all_h2h_away)
+            bd.update({"h2h_home": bh[1], "h2h_home_book": bh[0],
+                       "h2h_away": ba[1], "h2h_away_book": ba[0],
+                       "books_count": len(all_h2h_home)})
+            if sharp_book:
+                nv = _novig_from_book(books.get(sharp_book, {}), "h2h", home, away)
+                bd.update({"novig_home": nv.get("home"),
+                           "novig_away": nv.get("away"),
+                           "sharp_book": sharp_book})
+            implied_list = [_to_prob(p) for _, p in all_h2h_home]
+            if len(implied_list) > 1:
+                bd["ml_disagreement"] = round(
+                    (max(implied_list) - min(implied_list)) * 100, 2)
+            bd["avg_ml_home"] = round(np.mean([p for _, p in all_h2h_home]), 1)
+            bd["avg_ml_away"] = round(np.mean([p for _, p in all_h2h_away]), 1)
+
+        # --- Spread ---
+        spread_lines = []
+        for bkey, bdata in books.items():
+            for mkt in bdata.get("markets", []):
+                if mkt["key"] != "spreads":
+                    continue
+                for oc in mkt["outcomes"]:
+                    if oc["name"] == home:
+                        spread_lines.append((bkey, oc.get("point", 0), oc["price"]))
+        if spread_lines:
+            best_sp  = max(spread_lines, key=lambda x: x[1])
+            worst_sp = min(spread_lines, key=lambda x: x[1])
+            bd.update({"spread_line": best_sp[1], "spread_odds": best_sp[2],
+                       "spread_line_away": -worst_sp[1],
+                       "spread_odds_away": worst_sp[2],
+                       "spread_book": best_sp[0],
+                       "avg_spread_line": round(np.mean([x[1] for x in spread_lines]), 2)})
+
+        # --- Totals ---
+        over_lines, under_lines = [], []
+        for bkey, bdata in books.items():
+            for mkt in bdata.get("markets", []):
+                if mkt["key"] != "totals":
+                    continue
+                for oc in mkt["outcomes"]:
+                    if oc["name"] == "Over":
+                        over_lines.append((bkey, oc.get("point", 0), oc["price"]))
+                    elif oc["name"] == "Under":
+                        under_lines.append((bkey, oc.get("point", 0), oc["price"]))
+        if over_lines:
+            bo = min(over_lines, key=lambda x: x[1])   # lowest total = easiest Over
+            bd.update({"total_line_over": bo[1], "total_odds_over": bo[2],
+                       "total_book_over": bo[0]})
+        if under_lines:
+            bu = max(under_lines, key=lambda x: x[1])  # highest total = easiest Under
+            bd.update({"total_line_under": bu[1], "total_odds_under": bu[2],
+                       "total_book_under": bu[0]})
+        if over_lines and under_lines:
+            bd["avg_total_line"] = round(
+                np.mean([x[1] for x in over_lines + under_lines]), 2)
+
+        result[key] = bd
+    return result
+
+
+def fetch_odds_opticodds():
+    """Current NBA odds from OpticOdds (OddsJam) — 100+ sportsbooks."""
+    if not OPTICODDS_KEY:
+        print("[Odds-OpticOdds] No key — skipping.")
+        return {}
+    print("[Odds-OpticOdds] Fetching current NBA odds...")
+    try:
+        headers = {"X-Api-Key": OPTICODDS_KEY}
+        r = requests.get(
+            "https://api.opticodds.com/api/v3/fixtures/odds",
+            params={"sport": "basketball", "league": "NBA",
+                    "is_live": "false",
+                    "market_name": ["moneyline", "spread", "total"]},
+            headers=headers, timeout=20,
+        )
+        r.raise_for_status()
+        fixtures = r.json().get("data", [])
+        print(f"[Odds-OpticOdds] {len(fixtures)} fixtures.")
+        return _parse_opticodds(fixtures)
+    except Exception as e:
+        print(f"[Odds-OpticOdds] Error: {e}")
+        return {}
+
+
+def _parse_opticodds(fixtures):
+    result = {}
+    for f in fixtures:
+        home = (f.get("home_team") or {}).get("name") or f.get("home_team", "")
+        away = (f.get("away_team") or {}).get("name") or f.get("away_team", "")
+        if not home or not away:
+            continue
+        key = f"{home} vs {away}"
+        bd  = {}
+        ml_home, ml_away = [], []
+        for odd in (f.get("odds") or []):
+            market = (odd.get("market_name") or "").lower()
+            book   = (odd.get("sportsbook") or "").lower()
+            if "moneyline" not in market and "h2h" not in market:
+                continue
+            price = odd.get("price") or odd.get("american_odds")
+            if not price:
+                continue
+            side = (odd.get("name") or "").lower()
+            if home.lower() in side or "home" in side:
+                ml_home.append((book, int(price)))
+            elif away.lower() in side or "away" in side:
+                ml_away.append((book, int(price)))
+        if ml_home and ml_away:
+            def bo(lst): return max(lst,
+                key=lambda x: x[1] if x[1] > 0 else 10000 / abs(x[1]))
+            bh, ba = bo(ml_home), bo(ml_away)
+            bd.update({"h2h_home": bh[1], "h2h_home_book": bh[0],
+                       "h2h_away": ba[1], "h2h_away_book": ba[0],
+                       "books_count": len(ml_home)})
+            ph = next((p for b, p in ml_home if "pinnacle" in b), None)
+            pa = next((p for b, p in ml_away if "pinnacle" in b), None)
+            if ph and pa:
+                hi, ai = _to_prob(ph), _to_prob(pa)
+                t = hi + ai
+                bd.update({"novig_home": round(hi/t, 4),
+                           "novig_away": round(ai/t, 4),
+                           "sharp_book": "pinnacle"})
+        result[key] = bd
+    return result
+
+
+def merge_odds(theapi_odds, opticodds_odds):
+    """Merge both sources. OpticOdds takes priority for no-vig when available."""
+    merged = {}
+    for k in set(theapi_odds) | set(opticodds_odds):
+        merged[k] = {**theapi_odds.get(k, {}), **opticodds_odds.get(k, {})}
+    return merged
+
+
+def _kelly(p, american_odds):
+    b = american_odds / 100 if american_odds > 0 else 100 / abs(american_odds)
+    return max(0.0, (b * p - (1 - p)) / b) * KELLY_FRACTION
+
+# ---------------------------------------------------------------------------
+# 4.  FEATURE ENGINEERING  (walk-forward, no lookahead)
+# ---------------------------------------------------------------------------
 
 def build_team_logs(games):
-    home = games[["game_id","date","home_team","away_team",
-                  "home_score","away_score","point_diff","total_pts","home_win"]].copy()
-    home = home.rename(columns={"home_team":"team","away_team":"opponent",
-                                 "home_score":"pts_for","away_score":"pts_against"})
-    home["home"] = 1; home["result"] = home["home_win"]
-    away = games[["game_id","date","away_team","home_team",
-                  "away_score","home_score","point_diff","total_pts","home_win"]].copy()
-    away = away.rename(columns={"away_team":"team","home_team":"opponent",
-                                 "away_score":"pts_for","home_score":"pts_against"})
+    """Expand game rows into per-team-per-game rows (home + away perspectives)."""
+    home = games[["game_id","season","date","home_team","away_team",
+                  "home_score","away_score","point_diff","total_pts","home_win",
+                  "pace_proxy","home_off_rtg","home_def_rtg","home_net_rtg"]].copy()
+    home = home.rename(columns={
+        "home_team":"team","away_team":"opponent",
+        "home_score":"pts_for","away_score":"pts_against",
+        "home_off_rtg":"off_rtg","home_def_rtg":"def_rtg","home_net_rtg":"net_rtg"})
+    home["home"] = 1
+    home["result"] = home["home_win"]
+
+    away = games[["game_id","season","date","away_team","home_team",
+                  "away_score","home_score","point_diff","total_pts","home_win",
+                  "pace_proxy","away_off_rtg","away_def_rtg","away_net_rtg"]].copy()
+    away = away.rename(columns={
+        "away_team":"team","home_team":"opponent",
+        "away_score":"pts_for","home_score":"pts_against",
+        "away_off_rtg":"off_rtg","away_def_rtg":"def_rtg","away_net_rtg":"net_rtg"})
     away["home"] = 0
     away["point_diff"] = -away["point_diff"]
-    away["result"]     = (1 - away["home_win"]).astype(int)
+    away["result"] = (1 - away["home_win"]).astype(int)
+
     logs = pd.concat([home, away], ignore_index=True)
-    return logs.sort_values(["team","date"]).reset_index(drop=True)
+    return logs.sort_values(["team", "date"]).reset_index(drop=True)
 
 
-def build_all_features(logs, windows=[5, 10, 20]):
+def build_team_features(logs):
+    """
+    Walk-forward rolling features.
+    shift(1) on every stat ensures we never use the current game's outcome.
+    Net rating columns are the key new predictors (off/def efficiency proxy).
+    """
+    WINDOWS = [5, 10, 20]
     frames = []
     for team, grp in logs.groupby("team"):
-        grp = grp.copy().sort_values("date")
-        for w in windows:
-            for col in ["pts_for","pts_against","point_diff","total_pts"]:
-                grp[f"{col}_roll{w}"] = grp[col].shift(1).rolling(w, min_periods=max(2,w//2)).mean()
-            grp[f"win_rate{w}"] = grp["result"].shift(1).rolling(w, min_periods=max(2,w//2)).mean()
-        grp["days_rest"]       = grp["date"].diff().dt.days.fillna(7).clip(0,14)
-        grp["is_b2b"]          = (grp["days_rest"]==1).astype(int)
-        grp["pts_for_ewm"]     = grp["pts_for"].shift(1).ewm(span=5).mean()
-        grp["pts_against_ewm"] = grp["pts_against"].shift(1).ewm(span=5).mean()
-        grp["point_diff_ewm"]  = grp["point_diff"].shift(1).ewm(span=5).mean()
-        grp["win_ewm"]         = grp["result"].shift(1).ewm(span=5).mean()
-        grp["win_rate3"]       = grp["result"].shift(1).rolling(3, min_periods=1).mean()
-        grp["win_rate10_c"]    = grp["result"].shift(1).rolling(10, min_periods=3).mean()
-        grp["momentum"]        = grp["win_rate3"] - grp["win_rate10_c"]
-        grp["pace_proxy"]      = grp["pts_for"] + grp["pts_against"]
-        grp["pace_roll5"]      = grp["pace_proxy"].shift(1).rolling(5,  min_periods=2).mean()
-        grp["pace_roll10"]     = grp["pace_proxy"].shift(1).rolling(10, min_periods=3).mean()
-        grp["scoring_var10"]   = grp["pts_for"].shift(1).rolling(10, min_periods=3).std()
-        roll_avg               = grp["pts_for"].shift(1).rolling(10, min_periods=3).mean()
-        grp["scoring_drop"]    = (roll_avg - grp["pts_for"].shift(1)).clip(lower=0)
-        grp["inj_signal"]      = grp["scoring_drop"].shift(1).rolling(5, min_periods=1).mean()
-        home_pts = grp[grp["home"]==1]["pts_for"].shift(1).rolling(10, min_periods=2).mean()
-        away_pts = grp[grp["home"]==0]["pts_for"].shift(1).rolling(10, min_periods=2).mean()
-        grp["home_scoring_avg"] = home_pts.reindex(grp.index).ffill()
-        grp["away_scoring_avg"] = away_pts.reindex(grp.index).ffill()
-        frames.append(grp)
+        g = grp.sort_values("date").copy()
+
+        for w in WINDOWS:
+            mn = max(2, w // 2)
+            for col in ["pts_for", "pts_against", "point_diff", "total_pts",
+                        "net_rtg", "off_rtg", "def_rtg", "pace_proxy"]:
+                g[f"{col}_roll{w}"] = (g[col].shift(1)
+                                       .rolling(w, min_periods=mn).mean())
+            g[f"win_rate{w}"] = (g["result"].shift(1)
+                                 .rolling(w, min_periods=mn).mean())
+
+        for col in ["pts_for", "pts_against", "point_diff", "net_rtg"]:
+            g[f"{col}_ewm"] = g[col].shift(1).ewm(span=5, min_periods=2).mean()
+        g["win_ewm"] = g["result"].shift(1).ewm(span=5, min_periods=2).mean()
+
+        g["win_rate3"]    = g["result"].shift(1).rolling(3, min_periods=1).mean()
+        g["win_rate10_c"] = g["result"].shift(1).rolling(10, min_periods=3).mean()
+        g["momentum"]     = g["win_rate3"] - g["win_rate10_c"]
+
+        g["net_rtg_trend"] = g["net_rtg_roll5"] - g["net_rtg_roll20"]
+
+        g["days_rest"] = g["date"].diff().dt.days.fillna(7).clip(0, 14)
+        g["is_b2b"]    = (g["days_rest"] == 1).astype(int)
+
+        home_pts = (g[g["home"] == 1]["pts_for"].shift(1)
+                    .rolling(10, min_periods=2).mean())
+        away_pts = (g[g["home"] == 0]["pts_for"].shift(1)
+                    .rolling(10, min_periods=2).mean())
+        g["home_scoring_avg"] = home_pts.reindex(g.index).ffill()
+        g["away_scoring_avg"] = away_pts.reindex(g.index).ffill()
+
+        g["scoring_var10"] = (g["pts_for"].shift(1)
+                              .rolling(10, min_periods=3).std())
+
+        frames.append(g)
     return pd.concat(frames).sort_values(["date","team"]).reset_index(drop=True)
 
 
-def build_game_level_features(df):
-    home = df[df["home"]==1].copy()
-    away = df[df["home"]==0].copy()
+def build_game_features(df):
+    """
+    Pivot per-team rows into one row per game.
+    Adds diff_ = home_feat - away_feat for every feature column.
+    """
     feat_cols = [c for c in df.columns if any(x in c for x in [
-        "_roll","win_rate","ewm","momentum","pace","scoring",
-        "inj_signal","home_scoring","away_scoring","days_rest","is_b2b",
+        "_roll", "win_rate", "ewm", "momentum", "net_rtg",
+        "off_rtg", "def_rtg", "pace", "scoring",
+        "days_rest", "is_b2b", "_trend",
     ])]
-    base = [c for c in ["game_id","date","team","opponent",
-                         "point_diff","total_pts","home_win"] if c in df.columns]
-    hf = home[base+feat_cols].rename(columns={
-        **{c:f"home_{c}" for c in feat_cols},
-        "team":"home_team","opponent":"away_team"})
-    af = away[["date","team"]+feat_cols].rename(columns={
-        **{c:f"away_{c}" for c in feat_cols},
-        "team":"away_team_check"})
-    games = hf.merge(af, left_on=["date","away_team"],
-                     right_on=["date","away_team_check"],
-                     how="inner").drop(columns=["away_team_check"])
+    base = [c for c in ["game_id","date","season","home_team","away_team",
+                        "point_diff","total_pts","home_win"]
+            if c in df.columns]
+
+    h = df[df["home"] == 1].copy()
+    a = df[df["home"] == 0].copy()
+
+    hf = h[base + feat_cols].rename(
+        columns={c: f"home_{c}" for c in feat_cols})
+    af = a[["date","team"] + feat_cols].rename(
+        columns={"team": "away_team_check",
+                 **{c: f"away_{c}" for c in feat_cols}})
+
+    games = hf.merge(af,
+                     left_on=["date", "away_team"],
+                     right_on=["date", "away_team_check"],
+                     how="inner").drop(columns=["away_team_check"], errors="ignore")
+
     for col in feat_cols:
-        games[f"diff_{col}"] = games[f"home_{col}"] - games[f"away_{col}"]
-    return games.dropna().reset_index(drop=True)
+        hc, ac = f"home_{col}", f"away_{col}"
+        if hc in games.columns and ac in games.columns:
+            games[f"diff_{col}"] = games[hc] - games[ac]
+
+    return games.dropna(subset=["home_win"]).reset_index(drop=True)
 
 
 def compute_elo(df, k=20, home_adv=100):
-    elo = {t:1500.0 for t in pd.concat([df["home_team"],df["away_team"]]).unique()}
+    """
+    Margin-adjusted Elo ratings computed chronologically.
+    Stores the pre-game rating for each game (no leakage).
+    """
+    elo = {t: 1500.0 for t in
+           pd.concat([df["home_team"], df["away_team"]]).unique()}
     h_elos, a_elos = [], []
     for _, row in df.sort_values("date").iterrows():
-        h, a   = row["home_team"], row["away_team"]
-        exp_h  = 1/(1+10**((elo[a]-(elo[h]+home_adv))/400))
+        h, a = row["home_team"], row["away_team"]
+        exp_h = 1 / (1 + 10 ** ((elo[a] - (elo[h] + home_adv)) / 400))
         actual = row["home_win"]
-        h_elos.append(elo[h]); a_elos.append(elo[a])
+        h_elos.append(elo[h])
+        a_elos.append(elo[a])
         margin = abs(row["point_diff"])
-        k_m    = k*np.log1p(margin)*(2.2/((margin*0.001)+2.2))
-        elo[h] += k_m*(actual-exp_h); elo[a] += k_m*(exp_h-actual)
+        k_m = k * np.log1p(margin) * (2.2 / (margin * 0.001 + 2.2))
+        elo[h] += k_m * (actual - exp_h)
+        elo[a] += k_m * (exp_h - actual)
     df = df.sort_values("date").copy()
-    df["home_elo"]     = h_elos;  df["away_elo"]     = a_elos
-    df["elo_diff"]     = df["home_elo"]-df["away_elo"]
-    df["elo_win_prob"] = 1/(1+10**(-df["elo_diff"]/400))
+    df["home_elo"]     = h_elos
+    df["away_elo"]     = a_elos
+    df["elo_diff"]     = df["home_elo"] - df["away_elo"]
+    df["elo_win_prob"] = 1 / (1 + 10 ** (-df["elo_diff"] / 400))
     return df
 
-
-# -----------------------------------------------------------------------------
-# 5. FEATURE SETS
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# 5.  FEATURE LISTS
+# ---------------------------------------------------------------------------
 
 BASE_ML = [
-    "elo_diff","elo_win_prob",
-    "diff_pts_for_roll10","diff_pts_against_roll10","diff_point_diff_roll10",
-    "diff_pts_for_roll5","diff_pts_against_roll5",
-    "diff_win_rate10","diff_win_rate5","home_win_rate10","away_win_rate10",
-    "diff_momentum","diff_win_ewm","diff_point_diff_ewm",
-    "diff_days_rest","home_is_b2b","away_is_b2b",
-    "diff_inj_signal","home_inj_signal","away_inj_signal",
+    "elo_diff", "elo_win_prob",
+    # Rolling point metrics
+    "diff_pts_for_roll10", "diff_pts_against_roll10", "diff_point_diff_roll10",
+    "diff_pts_for_roll5",  "diff_pts_against_roll5",  "diff_point_diff_roll5",
+    "diff_win_rate10",     "diff_win_rate5",
+    "home_win_rate10",     "away_win_rate10",
+    "diff_momentum",       "diff_win_ewm",   "diff_point_diff_ewm",
+    # Net rating — key new features (strongest predictors)
+    "diff_net_rtg_roll10", "diff_net_rtg_roll5",  "diff_net_rtg_ewm",
+    "home_net_rtg_roll10", "away_net_rtg_roll10",
+    "diff_net_rtg_trend",
+    # Efficiency breakdown
+    "diff_off_rtg_roll10", "diff_def_rtg_roll10",
+    "diff_pace_proxy_roll10",
+    # Schedule
+    "diff_days_rest",      "home_is_b2b",    "away_is_b2b",
 ]
+
 PLAYER_ML = [
-    "diff_quality_score","diff_team_bpm","diff_team_vorp",
-    "diff_team_per","diff_team_ts_pct",
-    "diff_fg_pct","diff_fg3_pct","diff_avg_tov",
-    "home_injury_impact","away_injury_impact","diff_injury_impact",
-    "home_star_out","away_star_out",
-    "diff_lineup_depth","diff_rotation_stress",
-]
-BASE_SP = [
-    "elo_diff",
-    "diff_pts_for_roll10","diff_pts_against_roll10","diff_point_diff_roll10",
-    "diff_pts_for_roll5","diff_pts_against_roll5",
-    "diff_momentum","diff_point_diff_ewm",
-    "home_pts_for_roll10","home_pts_against_roll10",
-    "away_pts_for_roll10","away_pts_against_roll10",
-    "diff_days_rest","home_is_b2b","away_is_b2b","diff_inj_signal",
-    "home_home_scoring_avg","away_away_scoring_avg",
-]
-PLAYER_SP = [
-    "diff_quality_score","diff_team_bpm","diff_team_per",
-    "diff_fg_pct","diff_avg_tov",
-    "home_injury_impact","away_injury_impact","diff_injury_impact",
-    "home_star_out","away_star_out",
-]
-BASE_TOT = [
-    "home_pts_for_roll10","home_pts_against_roll10",
-    "away_pts_for_roll10","away_pts_against_roll10",
-    "home_total_pts_roll10","away_total_pts_roll10",
-    "home_total_pts_roll5","away_total_pts_roll5",
-    "home_pts_for_roll20","away_pts_for_roll20",
-    "home_pace_roll10","away_pace_roll10","diff_pace_roll10",
-    "home_pace_roll5","away_pace_roll5",
-    "home_scoring_var10","away_scoring_var10",
-    "diff_days_rest","home_is_b2b","away_is_b2b",
-]
-PLAYER_TOT = [
-    "diff_fg_pct","diff_fg3_pct","diff_ft_pct",
-    "home_team_ts_pct","away_team_ts_pct",
-    "home_injury_impact","away_injury_impact",
-    "diff_quality_score",
+    "diff_quality_score",  "diff_team_bpm",  "diff_team_vorp",
+    "diff_team_per",       "diff_team_ts_pct",
+    "diff_fg_pct",         "diff_fg3_pct",   "diff_avg_tov",
+    "home_injury_impact",  "away_injury_impact", "diff_injury_impact",
+    "home_star_out",       "away_star_out",
+    "diff_lineup_depth",   "diff_rotation_stress",
 ]
 
-def avail(df, cols): return [c for c in cols if c in df.columns]
 
+def avail(df, cols):
+    return [c for c in cols if c in df.columns]
 
-# -----------------------------------------------------------------------------
-# 6. MODELS
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# 6.  MODEL TRAINING
+# ---------------------------------------------------------------------------
 
 def train_moneyline(games, has_player=False):
+    """LR + XGBoost ensemble for moneyline win probability."""
     base  = avail(games, BASE_ML)
     extra = avail(games, PLAYER_ML) if has_player else []
-    f     = base + [x for x in extra if x not in base]
-    X, y  = games[f].values, games["home_win"].values
-    pipe = Pipeline([("sc",StandardScaler()),
-                     ("cl",CalibratedClassifierCV(
-                         LogisticRegression(C=0.5,max_iter=1000),cv=5))])
-    xgbc = xgb.XGBClassifier(n_estimators=300,max_depth=4,learning_rate=0.04,
-                              subsample=0.8,colsample_bytree=0.8,min_child_weight=3,
-                              eval_metric="logloss",use_label_encoder=False,random_state=42)
-    pipe.fit(X,y); xgbc.fit(X,y)
+    feats = base + [x for x in extra if x not in base]
+    X, y  = games[feats].values, games["home_win"].values
+
+    lr_pipe = Pipeline([
+        ("sc", StandardScaler()),
+        ("cl", CalibratedClassifierCV(
+            LogisticRegression(C=0.5, max_iter=2000, class_weight="balanced"),
+            cv=5)),
+    ])
+    xgb_clf = xgb.XGBClassifier(
+        n_estimators=400, max_depth=4, learning_rate=0.03,
+        subsample=0.75, colsample_bytree=0.75, min_child_weight=5,
+        gamma=0.1, eval_metric="logloss",
+        use_label_encoder=False, random_state=42,
+    )
+    lr_pipe.fit(X, y)
+    xgb_clf.fit(X, y)
+
     tscv    = TimeSeriesSplit(5)
-    lr_auc  = cross_val_score(pipe, X,y,cv=tscv,scoring="roc_auc").mean()
-    xgb_auc = cross_val_score(xgbc,X,y,cv=tscv,scoring="roc_auc").mean()
-    tag = "(+player stats)" if has_player else "(game scores only)"
-    print(f"[ML]  LR AUC={lr_auc:.3f}  XGB AUC={xgb_auc:.3f} {tag}")
-    importance = sorted(zip(f, xgbc.feature_importances_),
-                        key=lambda x: x[1], reverse=True)[:12]
-    return {"lr":pipe,"xgb":xgbc,"features":f,
-            "lr_auc":round(lr_auc,3),"xgb_auc":round(xgb_auc,3),
-            "feature_importance":importance,"has_player":has_player}
+    lr_auc  = cross_val_score(lr_pipe,  X, y, cv=tscv, scoring="roc_auc").mean()
+    xgb_auc = cross_val_score(xgb_clf, X, y, cv=tscv, scoring="roc_auc").mean()
+    tag = "(+player stats)" if has_player else "(game data only)"
+    print(f"[ML] LR AUC={lr_auc:.3f}  XGB AUC={xgb_auc:.3f}  {tag}")
+
+    importance = sorted(
+        zip(feats, xgb_clf.feature_importances_),
+        key=lambda x: x[1], reverse=True)[:15]
+
+    return {"lr": lr_pipe, "xgb": xgb_clf, "features": feats,
+            "has_player": has_player,
+            "lr_auc": round(lr_auc, 3), "xgb_auc": round(xgb_auc, 3),
+            "feature_importance": importance}
 
 
-def train_spread(games, has_player=False):
-    base  = avail(games, BASE_SP)
-    extra = avail(games, PLAYER_SP) if has_player else []
-    f     = base + [x for x in extra if x not in base]
-    X, y  = games[f].values, games["point_diff"].values
-    pipe  = Pipeline([("sc",StandardScaler()),("rg",Ridge(alpha=10.0))])
-    pipe.fit(X,y)
-    mae = -cross_val_score(pipe,X,y,cv=TimeSeriesSplit(5),
-                           scoring="neg_mean_absolute_error").mean()
-    print(f"[SP]  Ridge MAE={mae:.2f} pts")
-    return {"model":pipe,"features":f,"mae":round(mae,2)}
+def ensemble_prob(model, feat_row):
+    """Blend LR (45%) + XGBoost (55%)."""
+    feats = model["features"]
+    x     = np.array([[feat_row.get(f, 0) for f in feats]])
+    lr_p  = float(model["lr"].predict_proba(x)[0][1])
+    xgb_p = float(model["xgb"].predict_proba(x)[0][1])
+    return 0.45 * lr_p + 0.55 * xgb_p, lr_p, xgb_p
+
+# ---------------------------------------------------------------------------
+# 7.  BACKTEST  (proper walk-forward — zero lookahead bias)
+# ---------------------------------------------------------------------------
+
+def run_backtest(games_df, n_train_seasons=3):
+    """
+    Walk-forward backtest.
+    When we have enough seasons: train on first N, test on the rest.
+    Falls back to TimeSeriesSplit when only 1-2 seasons are available.
+    Player data is intentionally excluded from backtest features to avoid
+    end-of-season leakage (season averages are only fully known at season end).
+    """
+    print("\n[Backtest] Running walk-forward evaluation...")
+    seasons = sorted(games_df["season"].unique())
+    if len(seasons) > n_train_seasons:
+        train_s = seasons[:n_train_seasons]
+        test_s  = seasons[n_train_seasons:]
+        train   = games_df[games_df["season"].isin(train_s)].copy()
+        test    = games_df[games_df["season"].isin(test_s)].copy()
+        print(f"  Train: seasons {train_s} ({len(train)} games)")
+        print(f"  Test:  seasons {test_s}  ({len(test)} games)")
+        model = train_moneyline(train.dropna(subset=avail(train, BASE_ML)),
+                                has_player=False)
+        return _eval_backtest(model, test)
+    else:
+        print(f"  Only {len(seasons)} season(s) — using TimeSeriesSplit(5).")
+        return _backtest_tscv(games_df)
 
 
-def train_totals(games, has_player=False):
-    base  = avail(games, BASE_TOT)
-    extra = avail(games, PLAYER_TOT) if has_player else []
-    f     = base + [x for x in extra if x not in base]
-    X, y  = games[f].values, games["total_pts"].values
-    pipe  = Pipeline([("sc",StandardScaler()),("rg",Ridge(alpha=10.0))])
-    pipe.fit(X,y)
-    mae = -cross_val_score(pipe,X,y,cv=TimeSeriesSplit(5),
-                           scoring="neg_mean_absolute_error").mean()
-    print(f"[TOT] Ridge MAE={mae:.2f} pts")
-    return {"model":pipe,"features":f,"mae":round(mae,2)}
+def _backtest_tscv(games_df):
+    feats  = avail(games_df, BASE_ML)
+    clean  = games_df.dropna(subset=feats).sort_values("date").copy()
+    tscv   = TimeSeriesSplit(n_splits=5)
+    X, y   = clean[feats].values, clean["home_win"].values
+    preds  = []
+    for train_idx, test_idx in tscv.split(X):
+        m = train_moneyline(
+            clean.iloc[train_idx].dropna(subset=feats), has_player=False)
+        for idx in test_idx:
+            row  = dict(zip(feats, X[idx]))
+            prob, lr_p, xgb_p = ensemble_prob(m, row)
+            row_df = clean.iloc[idx]
+            preds.append({
+                "date":       str(row_df["date"])[:10],
+                "home":       row_df.get("home_team", ""),
+                "away":       row_df.get("away_team", ""),
+                "model_prob": round(prob, 3),
+                "lr_prob":    round(lr_p, 3),
+                "xgb_prob":   round(xgb_p, 3),
+                "actual":     int(row_df["home_win"]),
+                "elo_prob":   round(float(row_df.get("elo_win_prob", 0.5)), 3),
+            })
+    return _score_predictions(preds)
 
 
-# -----------------------------------------------------------------------------
-# 7. FACTOR ATTRIBUTION
-# -----------------------------------------------------------------------------
+def _eval_backtest(model, test_df):
+    feats      = avail(test_df, model["features"])
+    test_clean = test_df.dropna(subset=feats).sort_values("date").copy()
+    preds = []
+    for _, row in test_clean.iterrows():
+        feat_row = {f: row.get(f, 0) for f in model["features"]}
+        prob, lr_p, xgb_p = ensemble_prob(model, feat_row)
+        preds.append({
+            "date":       str(row["date"])[:10],
+            "home":       row.get("home_team", ""),
+            "away":       row.get("away_team", ""),
+            "model_prob": round(prob, 3),
+            "lr_prob":    round(lr_p, 3),
+            "xgb_prob":   round(xgb_p, 3),
+            "actual":     int(row["home_win"]),
+            "elo_prob":   round(float(row.get("elo_win_prob", 0.5)), 3),
+        })
+    return _score_predictions(preds)
+
+
+def _score_predictions(preds):
+    if not preds:
+        return {}
+    probs   = [p["model_prob"] for p in preds]
+    actuals = [p["actual"]     for p in preds]
+    auc   = roc_auc_score(actuals, probs)
+    brier = brier_score_loss(actuals, probs)
+    accuracy = sum(1 for p in preds
+                   if (p["model_prob"] >= 0.5) == bool(p["actual"])) / len(preds)
+
+    # Calibration buckets
+    buckets = [(0.45,0.50),(0.50,0.55),(0.55,0.60),
+               (0.60,0.65),(0.65,0.70),(0.70,0.75),(0.75,1.00)]
+    calibration = []
+    for lo, hi in buckets:
+        sub = [p for p in preds if lo <= p["model_prob"] < hi]
+        if sub:
+            calibration.append({
+                "bucket":    f"{lo:.0%}-{hi:.0%}",
+                "predicted": round(np.mean([p["model_prob"] for p in sub]), 3),
+                "actual":    round(np.mean([p["actual"] for p in sub]), 3),
+                "n":         len(sub),
+                "diff":      round(np.mean([p["model_prob"] for p in sub]) -
+                                   np.mean([p["actual"] for p in sub]), 3),
+            })
+
+    # Simulated flat-bet at -110 odds when model_prob > threshold
+    THRESH = 0.55
+    bankroll, unit = 1000.0, 10.0
+    bets, wins, history = 0, 0, [1000.0]
+    for p in sorted(preds, key=lambda x: x["date"]):
+        if p["model_prob"] < THRESH:
+            continue
+        bets += 1
+        if p["actual"] == 1:
+            wins += 1
+            bankroll += unit * 0.909
+        else:
+            bankroll -= unit
+        history.append(round(bankroll, 2))
+
+    win_rate = wins / bets if bets else 0
+    roi = (bankroll - 1000) / 1000 * 100
+
+    # Monthly breakdown
+    monthly = {}
+    for p in preds:
+        m = p["date"][:7]
+        monthly.setdefault(m, {"correct": 0, "total": 0, "probs": []})
+        monthly[m]["total"] += 1
+        monthly[m]["probs"].append(p["model_prob"])
+        if (p["model_prob"] >= 0.5) == bool(p["actual"]):
+            monthly[m]["correct"] += 1
+
+    monthly_list = [
+        {"month": k, "games": v["total"],
+         "accuracy": round(v["correct"] / v["total"], 3),
+         "avg_prob": round(np.mean(v["probs"]), 3)}
+        for k, v in sorted(monthly.items())
+    ]
+
+    print(f"[Backtest] {len(preds)} games | AUC={auc:.3f} | "
+          f"Accuracy={accuracy:.3f} | Brier={brier:.3f}")
+    print(f"[Backtest] Flat-bet simulation (>{THRESH}): "
+          f"{bets} bets | {win_rate:.1%} wins | ROI={roi:.1f}%")
+
+    return {
+        "test_games": len(preds),
+        "accuracy":   round(accuracy, 3),
+        "auc":        round(auc, 3),
+        "brier":      round(brier, 3),
+        "flat_bet": {
+            "threshold":         THRESH,
+            "bets_placed":       bets,
+            "bets_won":          wins,
+            "win_rate":          round(win_rate, 3),
+            "roi_pct":           round(roi, 2),
+            "starting_bankroll": 1000,
+            "ending_bankroll":   round(bankroll, 2),
+            "bankroll_history":  history[:300],
+            "note": ("Flat-bet at -110. Real bets sized by Kelly once live "
+                     "odds are available. ROI here is a model-quality proxy only."),
+        },
+        "calibration": calibration,
+        "monthly":     monthly_list,
+    }
+
+# ---------------------------------------------------------------------------
+# 8.  EDGE CALCULATION + RECOMMENDATIONS  (Pinnacle-anchored)
+# ---------------------------------------------------------------------------
 
 FACTOR_LABELS = {
-    "elo_diff":                  ("ELO rating advantage", "Team strength gap based on season results"),
-    "elo_win_prob":              ("ELO win probability",  "Historical win rate implied by ELO"),
-    "diff_point_diff_roll10":    ("10-game margin edge",  "Average winning margin differential, last 10"),
-    "diff_point_diff_roll5":     ("5-game margin edge",   "Recent scoring margin differential"),
-    "diff_pts_for_roll10":       ("Scoring advantage",    "Offensive output gap over 10 games"),
-    "diff_pts_against_roll10":   ("Defensive advantage",  "Points allowed differential"),
-    "diff_win_rate10":           ("Win rate edge",        "Win percentage gap last 10 games"),
-    "diff_momentum":             ("Momentum edge",        "Recent form vs season average"),
-    "diff_win_ewm":              ("Exponential momentum", "Recency-weighted form advantage"),
-    "diff_point_diff_ewm":       ("Scoring trend",        "Weighted recent scoring margin"),
-    "home_is_b2b":               ("Home B2B fatigue",     "Home team on second night of B2B"),
-    "away_is_b2b":               ("Away B2B fatigue",     "Away team on second night of B2B"),
-    "diff_days_rest":            ("Rest advantage",       "Days of rest differential"),
-    "diff_inj_signal":           ("Injury signal",        "Scoring drop proxy for injuries"),
-    "diff_quality_score":        ("Roster quality edge",  "Composite player quality differential"),
-    "diff_team_bpm":             ("Box Plus/Minus edge",  "Team BPM differential (advanced)"),
-    "diff_team_vorp":            ("VORP advantage",       "Value over replacement player gap"),
-    "diff_team_per":             ("PER advantage",        "Player efficiency rating differential"),
-    "diff_team_ts_pct":          ("True shooting edge",   "Team TS% differential (shooting efficiency)"),
-    "diff_fg_pct":               ("FG% advantage",        "Field goal percentage gap"),
-    "diff_fg3_pct":              ("3PT% advantage",       "Three-point shooting gap"),
-    "diff_avg_tov":              ("Turnover edge",        "Average turnovers differential"),
-    "home_injury_impact":        ("Home injury impact",   "Estimated pts lost to home injuries"),
-    "away_injury_impact":        ("Away injury impact",   "Estimated pts lost to away injuries"),
-    "diff_injury_impact":        ("Injury advantage",     "Relative injury burden differential"),
-    "home_star_out":             ("Home star missing",    "Top-2 home player confirmed out"),
-    "away_star_out":             ("Away star missing",    "Top-2 away player confirmed out"),
-    "diff_lineup_depth":         ("Depth advantage",      "Roster depth differential"),
-    "diff_rotation_stress":      ("Rotation load",        "Starter fatigue from heavy minutes"),
-    "diff_pace_roll10":          ("Pace mismatch",        "Team pace differential (fast vs slow)"),
+    "elo_diff":              ("ELO advantage",          "Season-long team strength gap"),
+    "elo_win_prob":          ("ELO win probability",    "Implied win rate by Elo rating"),
+    "diff_net_rtg_roll10":   ("Net rating edge (10g)",  "Scoring margin per 100 possessions, last 10"),
+    "diff_net_rtg_roll5":    ("Net rating edge (5g)",   "Recent net rating differential"),
+    "diff_net_rtg_ewm":      ("Net rating trend",       "Recency-weighted net rating edge"),
+    "diff_net_rtg_trend":    ("Form vs baseline",       "Recent net rating vs season average"),
+    "diff_point_diff_roll10":("10g margin edge",        "Average point margin differential, last 10"),
+    "diff_point_diff_roll5": ("5g margin edge",         "Recent point margin differential"),
+    "diff_off_rtg_roll10":   ("Offensive edge",         "Offensive efficiency gap, last 10"),
+    "diff_def_rtg_roll10":   ("Defensive edge",         "Defensive efficiency gap, last 10"),
+    "diff_win_rate10":       ("Win rate edge",          "Win % gap, last 10 games"),
+    "diff_momentum":         ("Momentum",               "Recent form vs season average"),
+    "diff_win_ewm":          ("Weighted form",          "Exponentially weighted win rate edge"),
+    "diff_point_diff_ewm":   ("Scoring trend",          "Recency-weighted scoring margin"),
+    "home_is_b2b":           ("Home B2B fatigue",       "Home team on second night of B2B"),
+    "away_is_b2b":           ("Away B2B fatigue",       "Away team on second night of B2B"),
+    "diff_days_rest":        ("Rest advantage",         "Days of rest differential"),
+    "diff_pace_proxy_roll10":("Pace mismatch",          "Fast vs slow team matchup, last 10"),
+    "diff_quality_score":    ("Roster quality edge",    "Composite player quality differential"),
+    "diff_team_bpm":         ("BPM edge",               "Box Plus/Minus differential"),
+    "diff_team_vorp":        ("VORP advantage",         "Value over replacement gap"),
+    "diff_team_per":         ("PER advantage",          "Player efficiency rating differential"),
+    "diff_fg3_pct":          ("3PT% edge",              "Three-point shooting gap"),
+    "home_injury_impact":    ("Home injuries",          "Pts lost to home team injuries"),
+    "away_injury_impact":    ("Away injuries",          "Pts lost to away team injuries"),
+    "home_star_out":         ("Home star missing",      "Top-2 home player confirmed out"),
+    "away_star_out":         ("Away star missing",      "Top-2 away player confirmed out"),
 }
 
 
-def get_top_factors(feat_row, features, lr_model, top_n=5):
-    """
-    Attribute prediction to top contributing features using LR coefficients.
-    Returns list of factor dicts with label, direction, strength, detail.
-    """
+def get_top_factors(feat_row, model, top_n=5):
+    """Top contributing features from LR coefficient × scaled value."""
     try:
-        lr_clf = lr_model["lr"].named_steps["cl"].estimator
-        scaler = lr_model["lr"].named_steps["sc"]
-        x_raw  = np.array([[feat_row.get(f,0) for f in features]])
-        x_sc   = scaler.transform(x_raw)[0]
-        coefs  = lr_clf.coef_[0]
-        contribs = [(features[i], x_sc[i]*coefs[i]) for i in range(len(features))]
-        contribs.sort(key=lambda x: abs(x[1]), reverse=True)
+        lr_clf   = model["lr"].named_steps["cl"].estimator
+        scaler   = model["lr"].named_steps["sc"]
+        feats    = model["features"]
+        x_raw    = np.array([[feat_row.get(f, 0) for f in feats]])
+        x_sc     = scaler.transform(x_raw)[0]
+        coefs    = lr_clf.coef_[0]
+        contribs = sorted(
+            [(feats[i], x_sc[i] * coefs[i]) for i in range(len(feats))],
+            key=lambda x: abs(x[1]), reverse=True)
         factors = []
         for feat, contrib in contribs[:top_n]:
             if abs(contrib) < 0.005:
                 continue
-            label, detail = FACTOR_LABELS.get(feat, (feat.replace("_"," ").title(), ""))
-            direction = "+" if contrib > 0 else "-"
-            strength  = "Strong" if abs(contrib) > 0.25 else "Moderate" if abs(contrib) > 0.12 else "Mild"
+            label, detail = FACTOR_LABELS.get(feat, (feat.replace("_", " ").title(), ""))
             factors.append({
                 "feature":   feat,
                 "label":     label,
                 "detail":    detail,
-                "direction": direction,
-                "strength":  strength,
+                "direction": "+" if contrib > 0 else "-",
+                "strength":  ("Strong"   if abs(contrib) > 0.25 else
+                               "Moderate" if abs(contrib) > 0.12 else "Mild"),
                 "contrib":   round(contrib, 4),
                 "raw_val":   round(feat_row.get(feat, 0), 3),
             })
@@ -774,716 +1062,369 @@ def get_top_factors(feat_row, features, lr_model, top_n=5):
         return []
 
 
-# -----------------------------------------------------------------------------
-# 8. BACKTEST
-# -----------------------------------------------------------------------------
-
-def run_backtest(games_df, model_ml, model_sp, model_tot):
-    print("[Backtest] Running walk-forward backtest...")
-    games_df = games_df.sort_values("date").reset_index(drop=True)
-    split    = int(len(games_df)*0.70)
-    test     = games_df.iloc[split:].copy().reset_index(drop=True)
-    if len(test) < 20:
-        return {}
-
-    ml_f  = [f for f in model_ml["features"]  if f in test.columns]
-    sp_f  = [f for f in model_sp["features"]  if f in test.columns]
-    tot_f = [f for f in model_tot["features"] if f in test.columns]
-
-    ml_probs  = model_ml["lr"].predict_proba(test[ml_f].fillna(0).values)[:,1]
-    sp_preds  = model_sp["model"].predict(test[sp_f].fillna(0).values)
-    tot_preds = model_tot["model"].predict(test[tot_f].fillna(0).values)
-
-    test["ml_prob"]    = ml_probs
-    test["sp_pred"]    = sp_preds
-    test["tot_pred"]   = tot_preds
-    test["ml_correct"] = ((test["ml_prob"]>0.5)==(test["home_win"]==1)).astype(int)
-
-    BET_THRESHOLD = 0.55; FLAT_BET = 100; bankroll = 1000.0
-    bankroll_hist = [bankroll]; ml_bets = []
-    for _, row in test.iterrows():
-        p = row["ml_prob"]
-        if p>BET_THRESHOLD or (1-p)>BET_THRESHOLD:
-            side_p = p if p>BET_THRESHOLD else 1-p
-            won    = (p>BET_THRESHOLD and row["home_win"]==1) or \
-                     ((1-p)>BET_THRESHOLD and row["home_win"]==0)
-            pnl    = FLAT_BET*0.909 if won else -FLAT_BET
-            bankroll += pnl
-            ml_bets.append({"prob":round(side_p,3),"won":won,"pnl":round(pnl,2)})
-            bankroll_hist.append(round(bankroll,2))
-
-    bins=[0.45,0.50,0.55,0.60,0.65,0.70,0.75,1.0]; calibration=[]
-    for i in range(len(bins)-1):
-        lo,hi=bins[i],bins[i+1]
-        mask=(ml_probs>=lo)&(ml_probs<hi)
-        if mask.sum()>0:
-            calibration.append({
-                "bucket":f"{lo:.0%}-{hi:.0%}",
-                "predicted":round(float(ml_probs[mask].mean()),3),
-                "actual":round(float(test.loc[mask,"home_win"].mean()),3),
-                "n":int(mask.sum()),
-                "diff":round(float(test.loc[mask,"home_win"].mean())-float(ml_probs[mask].mean()),3)
-            })
-
-    sp_e=abs(test["sp_pred"]-test["point_diff"])
-    tot_e=abs(test["tot_pred"]-test["total_pts"])
-    n_bets=len(ml_bets); n_wins=sum(1 for b in ml_bets if b["won"])
-    roi=((bankroll-1000)/(n_bets*FLAT_BET)*100) if n_bets>0 else 0
-
-    test["month"]=pd.to_datetime(test["date"]).dt.strftime("%b %Y")
-    monthly=[{"month":m,"games":len(g),"accuracy":round(float(g["ml_correct"].mean()),3),
-              "avg_prob":round(float(g["ml_prob"].mean()),3)}
-             for m,g in test.groupby("month")]
-
-    feat_imp = [{"feature":f,"label":FACTOR_LABELS.get(f,(f,""))[0],
-                 "importance":round(float(v),4)}
-                for f,v in model_ml.get("feature_importance",[])]
-
-    result = {
-        "generated_at":datetime.utcnow().isoformat()+"Z",
-        "test_games":len(test),"train_games":split,
-        "has_player_data":model_ml.get("has_player",False),
-        "ml":{"accuracy":round(float(test["ml_correct"].mean()),3),
-              "bets_placed":n_bets,"bets_won":n_wins,
-              "win_rate":round(n_wins/n_bets if n_bets>0 else 0,3),
-              "roi_pct":round(roi,2),"starting_bankroll":1000,
-              "ending_bankroll":round(bankroll,2),
-              "pnl":round(bankroll-1000,2),
-              "bankroll_history":bankroll_hist[:100]},
-        "spread":{"mae":round(float(sp_e.mean()),2),
-                  "within_5":round(float((sp_e<=5).mean()),3),
-                  "within_10":round(float((sp_e<=10).mean()),3)},
-        "totals":{"mae":round(float(tot_e.mean()),2),
-                  "within_5":round(float((tot_e<=5).mean()),3),
-                  "within_10":round(float((tot_e<=10).mean()),3)},
-        "calibration":calibration,"monthly":monthly,
-        "feature_importance":feat_imp,
-    }
-    print(f"[Backtest] Acc={result['ml']['accuracy']:.1%} Bets={n_bets} "
-          f"W/L={n_wins}/{n_bets-n_wins} ROI={roi:.1f}% $1k->${ bankroll:.0f}")
-    with open(BACKTEST_LOG_PATH,"w") as f: json.dump(result,f,indent=2)
-    return result
-
-
-# -----------------------------------------------------------------------------
-# 9. LIVE ODDS - best-line shopping + no-vig + line movement signal + CLV prep
-# -----------------------------------------------------------------------------
-
-def fetch_live_odds():
+def build_recommendations(home_win_prob, book_odds, factors, home, away):
     """
-    Fetch lines from ALL available US bookmakers.
-    For each game returns:
-      - Best available price per side (line shopping across books)
-      - Market consensus (average line = sharp money indicator)
-      - No-vig true implied probability (removes bookmaker juice)
-      - Book disagreement score (high spread = mispricing opportunity)
-      - Best book name to place each bet at
+    Build bet recs by comparing model probability to the no-vig market price.
+    Uses Pinnacle (sharpest book) as the no-vig benchmark when available.
+    Only flags bets with edge > MIN_EDGE.
     """
-    if not ODDS_API_KEY:
-        print("[Odds] No ODDS_API_KEY - skipping."); return {}
+    recs  = []
+    book  = book_odds or {}
+    top_f = [f["label"] for f in factors[:3]] if factors else []
 
-    print("[Odds] Fetching live lines (all books, line shopping)...")
-    try:
-        resp = requests.get(
-            "https://api.the-odds-api.com/v4/sports/basketball_nba/odds",
-            params={
-                "apiKey":     ODDS_API_KEY,
-                "regions":    "us",
-                "markets":    "h2h,spreads,totals",
-                "oddsFormat": "american",
-            },
-            timeout=20,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception as e:
-        print(f"[Odds] Failed: {e}"); return {}
-
-    odds = {}
-    for game in data:
-        ha = TEAM_NAME_MAP.get(game.get("home_team", ""))
-        aa = TEAM_NAME_MAP.get(game.get("away_team", ""))
-        if not ha or not aa:
-            continue
-
-        ml_home_list  = []   # [{"book": str, "odds": int}]
-        ml_away_list  = []
-        spread_h_list = []   # [{"book": str, "line": float, "odds": int}]
-        total_list    = []   # [{"book": str, "line": float, "odds": int}] (over side)
-
-        for bm in game.get("bookmakers", []):
-            bk = bm["key"]
-            for market in bm.get("markets", []):
-                if market["key"] == "h2h":
-                    for o in market["outcomes"]:
-                        abbr = TEAM_NAME_MAP.get(o["name"])
-                        if abbr == ha:
-                            ml_home_list.append({"book": bk, "odds": o["price"]})
-                        elif abbr == aa:
-                            ml_away_list.append({"book": bk, "odds": o["price"]})
-                elif market["key"] == "spreads":
-                    for o in market["outcomes"]:
-                        if TEAM_NAME_MAP.get(o["name"]) == ha:
-                            spread_h_list.append({"book": bk, "line": o["point"], "odds": o["price"]})
-                elif market["key"] == "totals":
-                    for o in market["outcomes"]:
-                        if o["name"] == "Over":
-                            total_list.append({"book": bk, "line": o["point"], "odds": o["price"]})
-
-        if not ml_home_list and not ml_away_list:
-            continue
-
-        # --- BEST PRICE (highest American odds = best for bettor) ---
-        best_ml_h = max(ml_home_list, key=lambda x: x["odds"]) if ml_home_list else None
-        best_ml_a = max(ml_away_list, key=lambda x: x["odds"]) if ml_away_list else None
-
-        # --- MARKET CONSENSUS (average across books) ---
-        avg_ml_h = float(np.mean([x["odds"] for x in ml_home_list])) if ml_home_list else None
-        avg_ml_a = float(np.mean([x["odds"] for x in ml_away_list])) if ml_away_list else None
-
-        # --- NO-VIG TRUE PROBABILITY (removes juice from consensus line) ---
-        novig_h = novig_a = None
-        if avg_ml_h and avg_ml_a:
-            ph = to_prob(avg_ml_h); pa = to_prob(avg_ml_a)
-            total_imp = ph + pa
-            novig_h = ph / total_imp
-            novig_a = pa / total_imp
-
-        # --- LINE DISAGREEMENT (high = books uncertain = value opportunity) ---
-        ml_disagreement = (
-            max(x["odds"] for x in ml_home_list) - min(x["odds"] for x in ml_home_list)
-        ) if len(ml_home_list) > 1 else 0
-
-        # --- BEST SPREAD ---
-        # For home cover: want highest (least negative) line
-        best_sp_home = max(spread_h_list, key=lambda x: x["line"]) if spread_h_list else None
-        # For away cover: want lowest (most negative) line = easier for away
-        best_sp_away = min(spread_h_list, key=lambda x: x["line"]) if spread_h_list else None
-        avg_spread   = float(np.mean([x["line"] for x in spread_h_list])) if spread_h_list else None
-
-        # --- BEST TOTAL ---
-        # For over: want lowest total line
-        best_over  = min(total_list, key=lambda x: x["line"]) if total_list else None
-        # For under: want highest total line
-        best_under = max(total_list, key=lambda x: x["line"]) if total_list else None
-        avg_total  = float(np.mean([x["line"] for x in total_list])) if total_list else None
-
-        odds[(ha, aa)] = {
-            # Best available price per side
-            "h2h_home":          best_ml_h["odds"]      if best_ml_h    else None,
-            "h2h_away":          best_ml_a["odds"]      if best_ml_a    else None,
-            "h2h_home_book":     best_ml_h["book"]      if best_ml_h    else None,
-            "h2h_away_book":     best_ml_a["book"]      if best_ml_a    else None,
-            # Spread: best line for each side
-            "spread_line":       best_sp_home["line"]   if best_sp_home else None,
-            "spread_odds":       best_sp_home["odds"]   if best_sp_home else None,
-            "spread_line_away":  best_sp_away["line"]   if best_sp_away else None,
-            "spread_odds_away":  best_sp_away["odds"]   if best_sp_away else None,
-            "spread_book":       best_sp_home["book"]   if best_sp_home else None,
-            # Totals: best line for each side
-            "total_line_over":   best_over["line"]      if best_over    else None,
-            "total_odds_over":   best_over["odds"]      if best_over    else None,
-            "total_line_under":  best_under["line"]     if best_under   else None,
-            "total_odds_under":  best_under["odds"]     if best_under   else None,
-            "total_book_over":   best_over["book"]      if best_over    else None,
-            "total_book_under":  best_under["book"]     if best_under   else None,
-            # Market consensus (for CLV tracking and sharp signal)
-            "avg_ml_home":       round(avg_ml_h, 1)     if avg_ml_h     else None,
-            "avg_ml_away":       round(avg_ml_a, 1)     if avg_ml_a     else None,
-            "avg_spread_line":   round(avg_spread, 2)   if avg_spread   else None,
-            "avg_total_line":    round(avg_total, 2)    if avg_total    else None,
-            # No-vig true probabilities (key for accurate edge calculation)
-            "novig_home":        round(novig_h, 4)      if novig_h      else None,
-            "novig_away":        round(novig_a, 4)      if novig_a      else None,
-            # Book disagreement signal
-            "ml_disagreement":   round(ml_disagreement, 1),
-            "books_count":       len(game.get("bookmakers", [])),
-        }
-
-    n_books = max((v["books_count"] for v in odds.values()), default=0)
-    print(f"[Odds] {len(odds)} games with lines across up to {n_books} books.")
-    return odds
-
-
-# -----------------------------------------------------------------------------
-# 10. BETTING EDGE
-# -----------------------------------------------------------------------------
-
-def to_prob(o): return 100/(o+100) if o>0 else abs(o)/(abs(o)+100)
-def remove_vig(h,a): t=h+a; return h/t,a/t
-def kelly(p,o):
-    b=o/100 if o>0 else 100/abs(o)
-    return max(0.0,((b*p-(1-p))/b)*KELLY_FRACTION)
-
-def ev(p,o,label=""):
-    imp=to_prob(o); e=p-imp
-    return {"label":label,"model_prob":round(p,3),"implied_prob":round(imp,3),
-            "edge":round(e,3),"kelly_pct":round(kelly(p,o)*100 if e>MIN_EDGE else 0,1),
-            "bet":e>MIN_EDGE}
-
-def ensemble_prob(lr_model,xgb_model,features,feat_row):
-    x=np.array([[feat_row.get(f,0) for f in features]])
-    lr_p=float(lr_model.predict_proba(x)[0][1])
-    xgb_p=float(xgb_model.predict_proba(x)[0][1])
-    return 0.45*lr_p+0.55*xgb_p,lr_p,xgb_p
-
-
-def build_recommendations(hwp, pd_, pt, book_odds, factors, home, away):
-    """
-    Compare model probabilities against the best available sportsbook lines.
-
-    Key improvements over naive implementation:
-    1. Uses no-vig true probability (removes juice) for accurate edge calculation
-    2. Evaluates BOTH sides of every market independently
-    3. Uses best available price from line shopping, not just one book
-    4. Flags book disagreement as a signal (books uncertain = opportunity)
-    5. Requires edge vs no-vig probability, not raw implied probability
-    """
-    recs = []
-    book = book_odds or {}
-    top_factors = [f["label"] for f in factors[:3]] if factors else []
-
-    # ── Moneyline ──────────────────────────────────────────────────────────
-    boh = book.get("h2h_home")    # best available home ML odds
-    boa = book.get("h2h_away")    # best available away ML odds
-    novig_h = book.get("novig_home")   # true market probability (no vig)
-    novig_a = book.get("novig_away")
-    ml_disagreement = book.get("ml_disagreement", 0)
-    books_count     = book.get("books_count", 1)
-    home_book       = book.get("h2h_home_book", "")
-    away_book       = book.get("h2h_away_book", "")
+    boh      = book.get("h2h_home")
+    boa      = book.get("h2h_away")
+    novig_h  = book.get("novig_home")
+    novig_a  = book.get("novig_away")
+    sharp    = book.get("sharp_book", "")
+    disagree = book.get("ml_disagreement", 0)
+    n_books  = book.get("books_count", 1)
 
     if boh and boa:
-        # Use no-vig probability if available, else raw implied
-        true_h = novig_h if novig_h else to_prob(boh)
-        true_a = novig_a if novig_a else to_prob(boa)
+        true_h = novig_h if novig_h else _to_prob(boh)
+        true_a = novig_a if novig_a else _to_prob(boa)
+        nv_note = f" (no-vig vs {sharp})" if novig_h else " (raw implied, no sharp book)"
 
-        # Evaluate HOME side
-        edge_h = hwp - true_h
+        # HOME side
+        edge_h = home_win_prob - true_h
         if edge_h > MIN_EDGE:
             grade = "A" if edge_h > 0.06 else "B" if edge_h > 0.04 else "C"
-            # Boost grade if books disagree (sharp signal)
-            if ml_disagreement > 10 and grade == "B":
+            if disagree > 10 and grade == "B":
                 grade = "A"
-            novig_note = f" (no-vig: {true_h:.1%})" if novig_h else ""
-            book_note  = f" @ {home_book.upper()}" if home_book else ""
             recs.append({
                 "type":        "ML",
                 "side":        "HOME",
+                "team":        home,
                 "odds":        boh,
-                "best_book":   home_book,
-                "model_prob":  round(hwp, 3),
-                "book_prob":   round(to_prob(boh), 3),
+                "best_book":   book.get("h2h_home_book", ""),
+                "model_prob":  round(home_win_prob, 3),
                 "novig_prob":  round(true_h, 3),
                 "edge":        round(edge_h, 3),
-                "kelly_pct":   round(kelly(hwp, boh) * 100, 1),
+                "kelly_pct":   round(_kelly(home_win_prob, boh) * 100, 1),
                 "grade":       grade,
-                "label":       f"{home} ML{book_note}",
-                "reason":      f"Model {hwp:.1%} vs market {true_h:.1%}{novig_note}",
-                "top_factors": top_factors,
-                "books_count": books_count,
-                "ml_disagreement": ml_disagreement,
+                "label":       f"{home} ML",
+                "reason":      f"Model {home_win_prob:.1%} vs {true_h:.1%} no-vig{nv_note}",
+                "top_factors": top_f,
+                "books_count": n_books,
+                "disagreement":disagree,
             })
 
-        # Evaluate AWAY side independently
-        awp    = 1 - hwp
-        edge_a = awp - true_a
+        # AWAY side
+        away_prob = 1 - home_win_prob
+        edge_a = away_prob - true_a
         if edge_a > MIN_EDGE:
             grade = "A" if edge_a > 0.06 else "B" if edge_a > 0.04 else "C"
-            if ml_disagreement > 10 and grade == "B":
+            if disagree > 10 and grade == "B":
                 grade = "A"
-            novig_note = f" (no-vig: {true_a:.1%})" if novig_a else ""
-            book_note  = f" @ {away_book.upper()}" if away_book else ""
             recs.append({
                 "type":        "ML",
                 "side":        "AWAY",
+                "team":        away,
                 "odds":        boa,
-                "best_book":   away_book,
-                "model_prob":  round(awp, 3),
-                "book_prob":   round(to_prob(boa), 3),
+                "best_book":   book.get("h2h_away_book", ""),
+                "model_prob":  round(away_prob, 3),
                 "novig_prob":  round(true_a, 3),
                 "edge":        round(edge_a, 3),
-                "kelly_pct":   round(kelly(awp, boa) * 100, 1),
+                "kelly_pct":   round(_kelly(away_prob, boa) * 100, 1),
                 "grade":       grade,
-                "label":       f"{away} ML{book_note}",
-                "reason":      f"Model {awp:.1%} vs market {true_a:.1%}{novig_note}",
-                "top_factors": top_factors,
-                "books_count": books_count,
-                "ml_disagreement": ml_disagreement,
+                "label":       f"{away} ML",
+                "reason":      f"Model {away_prob:.1%} vs {true_a:.1%} no-vig{nv_note}",
+                "top_factors": top_f,
+                "books_count": n_books,
+                "disagreement":disagree,
             })
-
-    # ── Spread ──────────────────────────────────────────────────────────────
-    # Evaluate home cover using best home-cover line
-    bsl_h  = book.get("spread_line")        # best line for home cover
-    bso_h  = book.get("spread_odds", -110)
-    bsl_a  = book.get("spread_line_away")   # best line for away cover
-    bso_a  = book.get("spread_odds_away", -110)
-    sp_book = book.get("spread_book", "")
-    avg_sp  = book.get("avg_spread_line")
-
-    if bsl_h is not None and pd_ is not None:
-        # Home cover
-        diff_h = pd_ - bsl_h
-        if diff_h >= 3:  # model says home wins by more than the line
-            sp_p  = min(0.65, max(0.35, 0.5 + diff_h * 0.025))
-            se    = sp_p - to_prob(bso_h)
-            if se > MIN_EDGE:
-                grade = "A" if diff_h >= 6 else "B" if diff_h >= 4 else "C"
-                avg_note = f" (market avg: {avg_sp:+.1f})" if avg_sp else ""
-                recs.append({
-                    "type":        "SPREAD",
-                    "side":        "HOME",
-                    "odds":        bso_h,
-                    "best_book":   sp_book,
-                    "model_line":  round(pd_, 1),
-                    "book_line":   bsl_h,
-                    "diff":        round(diff_h, 1),
-                    "edge":        round(se, 3),
-                    "kelly_pct":   round(kelly(sp_p, bso_h) * 100, 1),
-                    "grade":       grade,
-                    "label":       f"{home} {bsl_h:+.1f}",
-                    "reason":      f"Model {pd_:+.1f} vs line {bsl_h:+.1f} ({diff_h:+.1f} gap){avg_note}",
-                    "top_factors": top_factors,
-                    "books_count": books_count,
-                })
-
-    if bsl_a is not None and pd_ is not None:
-        # Away cover: model margin is less than away cover line
-        diff_a = bsl_a - pd_   # positive = away more likely to cover
-        if diff_a >= 3:
-            sp_p  = min(0.65, max(0.35, 0.5 + diff_a * 0.025))
-            se    = sp_p - to_prob(bso_a if bso_a else -110)
-            if se > MIN_EDGE:
-                grade = "A" if diff_a >= 6 else "B" if diff_a >= 4 else "C"
-                away_sp_line = -bsl_a  # flip to away perspective
-                recs.append({
-                    "type":        "SPREAD",
-                    "side":        "AWAY",
-                    "odds":        bso_a if bso_a else -110,
-                    "best_book":   sp_book,
-                    "model_line":  round(pd_, 1),
-                    "book_line":   bsl_a,
-                    "diff":        round(diff_a, 1),
-                    "edge":        round(se, 3),
-                    "kelly_pct":   round(kelly(sp_p, bso_a if bso_a else -110) * 100, 1),
-                    "grade":       grade,
-                    "label":       f"{away} {away_sp_line:+.1f}",
-                    "reason":      f"Model margin {pd_:+.1f}, away covers {bsl_a:+.1f} ({diff_a:+.1f} edge)",
-                    "top_factors": top_factors,
-                    "books_count": books_count,
-                })
-
-    # ── Totals ───────────────────────────────────────────────────────────────
-    # Evaluate OVER using best over line (lowest total)
-    btl_over  = book.get("total_line_over")
-    bto_over  = book.get("total_odds_over",  -110)
-    # Evaluate UNDER using best under line (highest total)
-    btl_under = book.get("total_line_under")
-    bto_under = book.get("total_odds_under", -110)
-    tot_book  = book.get("total_book_over", "")
-    avg_tot   = book.get("avg_total_line")
-
-    if pt is not None:
-        # OVER: model says more points than the lowest available line
-        if btl_over is not None:
-            diff_o = pt - btl_over
-            if diff_o >= 3:
-                tp   = min(0.65, max(0.35, 0.5 + diff_o * 0.025))
-                te   = tp - to_prob(bto_over)
-                if te > MIN_EDGE:
-                    grade = "A" if diff_o >= 6 else "B" if diff_o >= 4 else "C"
-                    avg_note = f" (avg line: {avg_tot:.1f})" if avg_tot else ""
-                    recs.append({
-                        "type":        "TOTAL",
-                        "side":        "OVER",
-                        "odds":        bto_over,
-                        "best_book":   tot_book,
-                        "model_line":  round(pt, 1),
-                        "book_line":   btl_over,
-                        "diff":        round(diff_o, 1),
-                        "edge":        round(te, 3),
-                        "kelly_pct":   round(kelly(tp, bto_over) * 100, 1),
-                        "grade":       grade,
-                        "label":       f"OVER {btl_over}",
-                        "reason":      f"Model {pt:.1f} vs line {btl_over:.1f} ({diff_o:+.1f}){avg_note}",
-                        "top_factors": top_factors,
-                        "books_count": books_count,
-                    })
-
-        # UNDER: model says fewer points than the highest available line
-        if btl_under is not None:
-            diff_u = btl_under - pt
-            if diff_u >= 3:
-                up   = min(0.65, max(0.35, 0.5 + diff_u * 0.025))
-                ue   = up - to_prob(bto_under)
-                if ue > MIN_EDGE:
-                    grade = "A" if diff_u >= 6 else "B" if diff_u >= 4 else "C"
-                    recs.append({
-                        "type":        "TOTAL",
-                        "side":        "UNDER",
-                        "odds":        bto_under,
-                        "best_book":   book.get("total_book_under", ""),
-                        "model_line":  round(pt, 1),
-                        "book_line":   btl_under,
-                        "diff":        round(diff_u, 1),
-                        "edge":        round(ue, 3),
-                        "kelly_pct":   round(kelly(up, bto_under) * 100, 1),
-                        "grade":       grade,
-                        "label":       f"UNDER {btl_under}",
-                        "reason":      f"Model {pt:.1f} vs line {btl_under:.1f} ({diff_u:+.1f})",
-                        "top_factors": top_factors,
-                        "books_count": books_count,
-                    })
-
     return recs
 
+# ---------------------------------------------------------------------------
+# 9.  BET LOG + CLV TRACKING
+# ---------------------------------------------------------------------------
 
-def load_bet_log():
-    if os.path.exists(BET_LOG_PATH):
-        with open(BET_LOG_PATH) as f: return json.load(f)
-    return {"bets": [], "summary": {}}
+def log_bet(matchup, rec, date_str, book_odds):
+    """Append a flagged bet to bet_log.json for Closing Line Value tracking."""
+    try:
+        log = json.load(open(BET_LOG_PATH)) if os.path.exists(BET_LOG_PATH) else {"bets":[]}
+    except Exception:
+        log = {"bets": []}
 
-
-def log_and_clv(matchup, rec, date_str, book_odds):
-    """
-    Log a flagged bet to bet_log.json.
-    Stores opening line for CLV tracking.
-    CLV = closing line value — did your line beat the final line?
-    Update closing_odds manually after game closes, or use a future automation.
-    """
-    log = load_bet_log()
-    bet_id = f"{date_str}_{matchup}_{rec['type']}_{rec['side']}".replace(" ", "_")
-    existing = {b["id"] for b in log["bets"]}
-    if bet_id in existing:
+    bet_id = f"{date_str}_{matchup}_{rec['type']}_{rec['side']}".replace(" ","_")
+    if any(b["id"] == bet_id for b in log["bets"]):
         return
 
-    entry = {
-        "id":            bet_id,
-        "date":          date_str,
-        "matchup":       matchup,
-        "type":          rec["type"],
-        "side":          rec["side"],
-        "odds":          rec["odds"],
-        "best_book":     rec.get("best_book", ""),
-        "model_prob":    rec["model_prob"],
-        "novig_prob":    rec.get("novig_prob", rec["model_prob"]),
-        "edge":          rec["edge"],
-        "kelly_pct":     rec["kelly_pct"],
-        "grade":         rec["grade"],
-        "top_factors":   rec.get("top_factors", []),
-        # CLV tracking fields (fill in after game closes)
-        "result":        "PENDING",   # W / L / PUSH
-        "closing_odds":  None,         # fill in manually or automate
-        "clv":           None,         # closing_odds - opening odds (positive = beat the line)
-        # Market context at time of bet
-        "books_count":   rec.get("books_count", 0),
-        "ml_disagreement": rec.get("ml_disagreement", 0),
-        "avg_ml_home":   book_odds.get("avg_ml_home"),
-        "avg_ml_away":   book_odds.get("avg_ml_away"),
-        "avg_spread":    book_odds.get("avg_spread_line"),
-        "avg_total":     book_odds.get("avg_total_line"),
-    }
-    log["bets"].append(entry)
+    log["bets"].append({
+        "id":           bet_id,
+        "date":         date_str,
+        "matchup":      matchup,
+        "type":         rec["type"],
+        "side":         rec["side"],
+        "team":         rec.get("team",""),
+        "odds":         rec["odds"],
+        "best_book":    rec.get("best_book",""),
+        "model_prob":   rec["model_prob"],
+        "novig_prob":   rec.get("novig_prob", rec["model_prob"]),
+        "edge":         rec["edge"],
+        "kelly_pct":    rec["kelly_pct"],
+        "grade":        rec["grade"],
+        "top_factors":  rec.get("top_factors",[]),
+        "books_count":  rec.get("books_count",0),
+        "disagreement": rec.get("disagreement",0),
+        # Fill in after game resolves:
+        "result":          "PENDING",  # W / L / PUSH
+        "closing_odds":    None,
+        "clv":             None,       # closing_odds - opening_odds (+ = beat the line)
+    })
 
-    # Recompute summary
-    graded = [b for b in log["bets"] if b["result"] in ("W", "L")]
+    graded = [b for b in log["bets"] if b["result"] in ("W","L")]
     if graded:
         wins = sum(1 for b in graded if b["result"] == "W")
-        # CLV average (only where available)
         clv_bets = [b for b in graded if b.get("clv") is not None]
-        avg_clv  = float(np.mean([b["clv"] for b in clv_bets])) if clv_bets else None
         log["summary"] = {
             "total_bets":   len(graded),
             "wins":         wins,
-            "losses":       len(graded) - wins,
-            "win_rate":     round(wins / len(graded), 3),
-            "avg_edge":     round(float(np.mean([b["edge"] for b in graded])), 3),
-            "avg_clv":      round(avg_clv, 2) if avg_clv is not None else None,
-            "pending_bets": sum(1 for b in log["bets"] if b["result"] == "PENDING"),
-            "grade_A_record": f"{sum(1 for b in graded if b.get('grade')=='A' and b['result']=='W')}-{sum(1 for b in graded if b.get('grade')=='A' and b['result']=='L')}",
-            "grade_B_record": f"{sum(1 for b in graded if b.get('grade')=='B' and b['result']=='W')}-{sum(1 for b in graded if b.get('grade')=='B' and b['result']=='L')}",
+            "losses":       len(graded)-wins,
+            "win_rate":     round(wins/len(graded),3),
+            "avg_edge":     round(float(np.mean([b["edge"] for b in graded])),3),
+            "avg_clv":      round(float(np.mean([b["clv"] for b in clv_bets])),2)
+                            if clv_bets else None,
+            "pending_bets": sum(1 for b in log["bets"] if b["result"]=="PENDING"),
+            "grade_A": (f"{sum(1 for b in graded if b.get('grade')=='A' and b['result']=='W')}"
+                        f"-{sum(1 for b in graded if b.get('grade')=='A' and b['result']=='L')}"),
+            "grade_B": (f"{sum(1 for b in graded if b.get('grade')=='B' and b['result']=='W')}"
+                        f"-{sum(1 for b in graded if b.get('grade')=='B' and b['result']=='L')}"),
         }
-
     with open(BET_LOG_PATH, "w") as f:
         json.dump(log, f, indent=2)
 
-
-# -----------------------------------------------------------------------------
-# 11. MAIN MODEL CLASS
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# 10.  MAIN MODEL CLASS
+# ---------------------------------------------------------------------------
 
 class NBABettingModel:
-    def __init__(self,season=SEASON):
-        self.season=season; self.models={}; self.games=None; self.raw=None
-        self.player_profiles={}; self.has_player=False
+    def __init__(self):
+        self.games_df        = None
+        self.rolled_logs     = None
+        self.model           = None
+        self.player_profiles = {}
+        self.has_player      = False
+        self.current_elo     = {}
+        self.backtest_stats  = {}
+
+    # ── Training ────────────────────────────────────────────────────────────
 
     def fit(self):
-        print("="*55+"\nNBA Betting Model - Edge v5\n"+"="*55)
+        print("=" * 60)
+        print("NBA Betting Model  v6  —  Full Rebuild")
+        print("=" * 60)
 
-        # Game data
-        games  = fetch_games(self.season)
-        logs   = build_team_logs(games)
-        rolled = build_all_features(logs)
-        gf     = build_game_level_features(rolled)
-        gf     = compute_elo(gf)
-        self.games=gf; self.raw=rolled
+        games_raw = fetch_games(TRAIN_SEASONS)
+        logs      = build_team_logs(games_raw)
+        rolled    = build_team_features(logs)
+        gf        = build_game_features(rolled)
+        gf        = compute_elo(gf)
 
-        # Player data
-        totals_df  = fetch_player_totals(NBAAPI_SEASON)
-        advanced_df= fetch_player_advanced(NBAAPI_SEASON)
+        self.games_df    = gf
+        self.rolled_logs = rolled
+
+        # Persist latest Elo per team for predictions
+        for _, row in gf.sort_values("date").iterrows():
+            self.current_elo[row["home_team"]] = row["home_elo"]
+            self.current_elo[row["away_team"]] = row["away_elo"]
+
+        # Train on all available data (game features only — no player leakage)
+        train_data   = gf.dropna(subset=avail(gf, BASE_ML))
+        self.model   = train_moneyline(train_data, has_player=False)
+
+        # Backtest
+        self.backtest_stats = run_backtest(gf)
+
+        # Player data — loaded AFTER backtest, used only for forward predictions
+        print("\n[Players] Loading current-season player data for predictions...")
+        totals_df            = fetch_player_totals(NBAAPI_SEASON)
+        advanced_df          = fetch_player_advanced(NBAAPI_SEASON)
         self.player_profiles = build_team_player_profiles(totals_df, advanced_df)
-        self.has_player = bool(self.player_profiles)
+        self.has_player      = bool(self.player_profiles)
 
-        # Train models
-        self.models["ml"]  = train_moneyline(gf, has_player=False)
-        self.models["sp"]  = train_spread(gf,    has_player=False)
-        self.models["tot"] = train_totals(gf,     has_player=False)
+        print("\n[Fit] Complete.\n")
 
-        if self.has_player:
-            print(f"[Players] Player profiles loaded for {len(self.player_profiles)} teams.")
-        print("Done.\n")
+    # ── Single-game prediction ───────────────────────────────────────────────
 
-    def _game_feats(self, team, is_home):
-        prefix="home" if is_home else "away"
-        tdf=self.raw[self.raw["team"]==team].sort_values("date")
-        if tdf.empty: raise ValueError(f"Team '{team}' not found.")
-        latest=tdf.iloc[-1]
-        feat_keys=[c for c in tdf.columns if any(x in c for x in [
-            "_roll","win_rate","ewm","momentum","pace","scoring",
-            "inj_signal","home_scoring","away_scoring","days_rest","is_b2b",
+    def _team_feats(self, team, is_home):
+        prefix = "home" if is_home else "away"
+        tdf = self.rolled_logs[self.rolled_logs["team"] == team].sort_values("date")
+        if tdf.empty:
+            raise ValueError(f"Team '{team}' not found in training data.")
+        latest   = tdf.iloc[-1]
+        feat_keys = [c for c in tdf.columns if any(x in c for x in [
+            "_roll","win_rate","ewm","momentum","net_rtg",
+            "off_rtg","def_rtg","pace","scoring","days_rest","is_b2b","_trend",
         ])]
-        return {f"{prefix}_{c}":latest[c] for c in feat_keys}
+        return {f"{prefix}_{c}": latest[c] for c in feat_keys}
 
     def predict(self, home, away, book_odds=None, injury_report=None):
-        fr={**self._game_feats(home,True), **self._game_feats(away,False)}
-        h_elo=self.games[self.games["home_team"]==home].sort_values("date").iloc[-1]["home_elo"]
-        a_elo=self.games[self.games["away_team"]==away].sort_values("date").iloc[-1]["away_elo"]
-        fr["elo_diff"]=h_elo-a_elo
-        fr["elo_win_prob"]=1/(1+10**(-fr["elo_diff"]/400))
+        fr = {**self._team_feats(home, True), **self._team_feats(away, False)}
+
+        h_elo = self.current_elo.get(home, 1500.0)
+        a_elo = self.current_elo.get(away, 1500.0)
+        fr["elo_diff"]     = h_elo - a_elo
+        fr["elo_win_prob"] = 1 / (1 + 10 ** (-(h_elo - a_elo) / 400))
+
         for s in {k[5:] for k in fr if k.startswith("home_")}:
-            fr[f"diff_{s}"]=fr.get(f"home_{s}",0)-fr.get(f"away_{s}",0)
+            fr[f"diff_{s}"] = fr.get(f"home_{s}", 0) - fr.get(f"away_{s}", 0)
 
-        # Player features
-        hp=self.player_profiles.get(home,{}); ap=self.player_profiles.get(away,{})
-        player_fields=["quality_score","team_bpm","team_vorp","team_per","team_ts_pct",
-                       "fg_pct","fg3_pct","ft_pct","avg_tov","lineup_depth","rotation_stress"]
-        for key in player_fields:
-            fr[f"home_{key}"]=hp.get(key,0)
-            fr[f"away_{key}"]=ap.get(key,0)
-            fr[f"diff_{key}"]=hp.get(key,0)-ap.get(key,0)
+        # Player and injury augmentation
+        hp = self.player_profiles.get(home, {})
+        ap = self.player_profiles.get(away, {})
+        for key in ["quality_score","team_bpm","team_vorp","team_per","team_ts_pct",
+                    "fg_pct","fg3_pct","ft_pct","avg_tov","lineup_depth","rotation_stress"]:
+            fr[f"home_{key}"] = hp.get(key, 0)
+            fr[f"away_{key}"] = ap.get(key, 0)
+            fr[f"diff_{key}"] = hp.get(key, 0) - ap.get(key, 0)
 
-        # Injury features
-        inj_h=compute_injury_impact(home,injury_report or {},self.player_profiles)
-        inj_a=compute_injury_impact(away,injury_report or {},self.player_profiles)
-        fr["home_injury_impact"]=inj_h["impact_score"]
-        fr["away_injury_impact"]=inj_a["impact_score"]
-        fr["diff_injury_impact"]=inj_a["impact_score"]-inj_h["impact_score"]  # positive = away worse
-        fr["home_star_out"]=1.0 if inj_h["star_out"] else 0.0
-        fr["away_star_out"]=1.0 if inj_a["star_out"] else 0.0
+        inj_h = compute_injury_impact(home, injury_report or {}, self.player_profiles)
+        inj_a = compute_injury_impact(away, injury_report or {}, self.player_profiles)
+        fr["home_injury_impact"] = inj_h["impact_score"]
+        fr["away_injury_impact"] = inj_a["impact_score"]
+        fr["diff_injury_impact"] = inj_h["impact_score"] - inj_a["impact_score"]
+        fr["home_star_out"]      = int(inj_h["star_out"])
+        fr["away_star_out"]      = int(inj_a["star_out"])
 
-        m=self.models["ml"]
-        hwp,lr_p,xgb_p=ensemble_prob(m["lr"],m["xgb"],m["features"],fr)
-
-        sp=self.models["sp"]
-        pd_=float(sp["model"].predict(np.array([[fr.get(f,0) for f in sp["features"]]]))[0])
-
-        tot=self.models["tot"]
-        pt=float(tot["model"].predict(np.array([[fr.get(f,0) for f in tot["features"]]]))[0])
-
-        factors=get_top_factors(fr,m["features"],m,top_n=6)
-        recs=build_recommendations(hwp,pd_,pt,book_odds or {},factors,home,away)
+        hwp, lr_p, xgb_p = ensemble_prob(self.model, fr)
+        factors           = get_top_factors(fr, self.model)
+        recs              = build_recommendations(hwp, book_odds, factors, home, away)
 
         return {
-            "matchup":f"{home} vs {away}","home_team":home,"away_team":away,
-            "generated_at":datetime.utcnow().isoformat()+"Z",
-            "moneyline":{"home_win_prob":round(hwp,3),"away_win_prob":round(1-hwp,3),
-                         "lr_prob":round(lr_p,3),"xgb_prob":round(xgb_p,3),
-                         "elo_prob":round(fr["elo_win_prob"],3),
-                         "model_consensus":abs(lr_p-xgb_p)<0.05},
-            "spread":{"predicted_margin":round(pd_,2),"model_mae":sp["mae"]},
-            "totals":{"predicted_total":round(pt,1),"model_mae":tot["mae"]},
-            "book_odds":book_odds or {},
-            "recommendations":recs,
-            "top_factors":factors,
-            "injuries":{
-                "home":{"out":inj_h["out_players"],"questionable":inj_h["questionable_players"],
-                        "impact":inj_h["impact_score"],"star_out":inj_h["star_out"]},
-                "away":{"out":inj_a["out_players"],"questionable":inj_a["questionable_players"],
-                        "impact":inj_a["impact_score"],"star_out":inj_a["star_out"]},
-            },
-            "player_profiles":{
-                "home":{"top_players":hp.get("top_players",[])[:5],
-                        "team_bpm":hp.get("team_bpm",0),"team_per":hp.get("team_per",0),
-                        "team_vorp":hp.get("team_vorp",0),"fg_pct":hp.get("fg_pct",0),
-                        "fg3_pct":hp.get("fg3_pct",0),"quality_score":hp.get("quality_score",0)},
-                "away":{"top_players":ap.get("top_players",[])[:5],
-                        "team_bpm":ap.get("team_bpm",0),"team_per":ap.get("team_per",0),
-                        "team_vorp":ap.get("team_vorp",0),"fg_pct":ap.get("fg_pct",0),
-                        "fg3_pct":ap.get("fg3_pct",0),"quality_score":ap.get("quality_score",0)},
-                "has_data":self.has_player,
-            },
-            "fatigue_alert":(["B2B: "+home] if fr.get("home_is_b2b",0) else [])+
-                            (["B2B: "+away] if fr.get("away_is_b2b",0) else []),
-            "elo":{"home":round(h_elo,0),"away":round(a_elo,0),"diff":round(h_elo-a_elo,0)},
+            "matchup":          f"{home} vs {away}",
+            "home":             home,
+            "away":             away,
+            "home_elo":         round(h_elo, 1),
+            "away_elo":         round(a_elo, 1),
+            "home_win_prob":    round(hwp, 3),
+            "away_win_prob":    round(1 - hwp, 3),
+            "lr_prob":          round(lr_p, 3),
+            "xgb_prob":         round(xgb_p, 3),
+            "top_factors":      factors,
+            "recommendations":  recs,
+            "home_player_profile": hp,
+            "away_player_profile": ap,
+            "home_injuries":    inj_h,
+            "away_injuries":    inj_a,
+            "has_live_odds":    bool(book_odds),
+            "has_sharp_novig":  bool(book_odds and book_odds.get("novig_home")),
         }
 
+    # ── Full pipeline ────────────────────────────────────────────────────────
 
-# -----------------------------------------------------------------------------
-# 12. ENTRY POINT
-# -----------------------------------------------------------------------------
+    def run(self):
+        self.fit()
 
-if __name__=="__main__":
-    model=NBABettingModel(season=SEASON)
-    model.fit()
+        # Odds
+        theapi_odds   = fetch_odds_theapi()
+        opticodds_all = fetch_odds_opticodds()
+        all_odds      = merge_odds(theapi_odds, opticodds_all)
 
-    backtest=run_backtest(model.games,model.models["ml"],
-                          model.models["sp"],model.models["tot"])
+        # Injuries
+        injury_report = fetch_injuries_bdl()
 
-    injury_report=fetch_injury_report()
-    live_odds=fetch_live_odds()
-    upcoming=fetch_upcoming_games(SEASON)
+        # Upcoming games
+        upcoming = fetch_upcoming_games()
+        print(f"\n[Predictions] Generating for {len(upcoming)} upcoming games...")
 
-    out={"generated_at":datetime.utcnow().isoformat()+"Z","model_version":"edge-v5",
-         "has_player_data":model.has_player,"has_injury_data":bool(injury_report),
-         "model_stats":{"ml_lr_auc":model.models["ml"]["lr_auc"],
-                        "ml_xgb_auc":model.models["ml"]["xgb_auc"],
-                        "spread_mae":model.models["sp"]["mae"],
-                        "totals_mae":model.models["tot"]["mae"]},
-         "games":[],"all_recs":[],"has_live_odds":bool(live_odds)}
-
-    if not upcoming:
-        print("No games scheduled today.")
-    else:
+        games_out, all_recs = [], []
         for g in upcoming:
-            home,away=g["home"],g["away"]
+            home, away = g["home"], g["away"]
+            book_odds  = None
+            for key, odds in all_odds.items():
+                kl = key.lower()
+                if home.lower() in kl and away.lower() in kl:
+                    book_odds = odds
+                    break
             try:
-                book=live_odds.get((home,away)) or live_odds.get((away,home),{})
-                pred=model.predict(home,away,book_odds=book,injury_report=injury_report)
-                pred["game_time"]=g.get("time","TBD")
-                out["games"].append(pred); out["all_recs"].extend(pred["recommendations"])
-                ml=pred["moneyline"]; recs=pred["recommendations"]
-                today=datetime.now(timezone.utc).strftime("%Y-%m-%d")
-                print(f"\n  {pred['matchup']} | home {ml['home_win_prob']:.1%} away {ml['away_win_prob']:.1%}")
-                if recs:
-                    for r in recs:
-                        book_tag = f" @ {r['best_book'].upper()}" if r.get("best_book") else ""
-                        print(f"  [{r['grade']}] {r['type']} {r['side']}{book_tag} edge={r['edge']:+.1%} novig={r.get('novig_prob',r['model_prob']):.1%}")
-                        print(f"      Factors: {', '.join(r.get('top_factors',[]))}")
-                        # Log bet with CLV tracking
-                        log_and_clv(pred['matchup'], r, today, book)
-                else:
-                    print(f"  No bets — no edge over book lines")
-                inj=pred.get("injuries",{})
-                if inj.get("home",{}).get("out"): print(f"  OUT ({home}): {inj['home']['out']}")
-                if inj.get("away",{}).get("out"): print(f"  OUT ({away}): {inj['away']['out']}")
+                pred = self.predict(home, away, book_odds, injury_report)
             except Exception as e:
-                print(f"  Error {home} vs {away}: {e}")
-                out["games"].append({"matchup":f"{home} vs {away}","error":str(e)})
+                print(f"  Skipping {home} vs {away}: {e}")
+                continue
+            pred["date"] = g["date"]
+            pred["time"] = g["time"]
+            games_out.append(pred)
+            for rec in pred["recommendations"]:
+                all_recs.append({**rec, "matchup": pred["matchup"], "date": g["date"]})
+                log_bet(pred["matchup"], rec, g["date"], book_odds or {})
 
-    bet_log=load_bet_log()
-    out["bet_log_summary"]=bet_log.get("summary",{})
-    out["pending_bets"]=[b for b in bet_log.get("bets",[]) if b["result"]=="PENDING"]
+        all_recs.sort(key=lambda x: x.get("edge", 0), reverse=True)
 
-    path=os.path.join(os.path.dirname(__file__),"predictions.json")
-    with open(path,"w") as f: json.dump(out,f,indent=2)
-    print(f"\nDone - {len(out['games'])} games, {len(out['all_recs'])} recs")
+        bet_log_summary, pending = {}, []
+        if os.path.exists(BET_LOG_PATH):
+            try:
+                bl = json.load(open(BET_LOG_PATH))
+                bet_log_summary = bl.get("summary", {})
+                pending = [b for b in bl.get("bets",[]) if b.get("result")=="PENDING"]
+            except Exception:
+                pass
+
+        predictions = {
+            "generated_at":      datetime.now(timezone.utc).isoformat(),
+            "model_version":     "v6-rebuild",
+            "train_seasons":     TRAIN_SEASONS,
+            "train_games":       int(len(self.games_df)) if self.games_df is not None else 0,
+            "has_player_data":   self.has_player,
+            "has_live_odds":     bool(all_odds),
+            "model_stats": {
+                "ml_lr_auc":         self.model["lr_auc"],
+                "ml_xgb_auc":        self.model["xgb_auc"],
+                "backtest_auc":      self.backtest_stats.get("auc"),
+                "backtest_accuracy": self.backtest_stats.get("accuracy"),
+                "backtest_brier":    self.backtest_stats.get("brier"),
+                "sharp_book_used":   "pinnacle" if any(
+                    o.get("sharp_book") == "pinnacle"
+                    for o in all_odds.values()) else "none",
+            },
+            "feature_importance": [
+                {"feature": f,
+                 "label": FACTOR_LABELS.get(f, (f,))[0],
+                 "importance": round(float(imp), 4)}
+                for f, imp in self.model["feature_importance"]
+            ],
+            "games":          games_out,
+            "all_recs":       all_recs,
+            "bet_log_summary":bet_log_summary,
+            "pending_bets":   pending,
+        }
+        with open(PRED_PATH, "w") as f:
+            json.dump(predictions, f, indent=2)
+        print(f"\n[Output] predictions.json — {len(games_out)} games, "
+              f"{len(all_recs)} flagged bets.")
+
+        backtest_out = {
+            "generated_at":    datetime.now(timezone.utc).isoformat(),
+            "train_seasons":   TRAIN_SEASONS,
+            "train_games":     int(len(self.games_df)) if self.games_df is not None else 0,
+            "has_player_data": False,
+            **self.backtest_stats,
+            "feature_importance": [
+                {"feature": f,
+                 "label": FACTOR_LABELS.get(f, (f,))[0],
+                 "importance": round(float(imp), 4)}
+                for f, imp in self.model["feature_importance"]
+            ],
+        }
+        with open(BACKTEST_PATH, "w") as f:
+            json.dump(backtest_out, f, indent=2)
+        print(f"[Output] backtest.json written.")
+
+        grade_a = [r for r in all_recs if r.get("grade") == "A"]
+        grade_b = [r for r in all_recs if r.get("grade") == "B"]
+        print(f"\n{'='*60}")
+        print(f"  Grade A bets (>6% edge vs no-vig):  {len(grade_a)}")
+        print(f"  Grade B bets (4-6% edge vs no-vig): {len(grade_b)}")
+        if not all_odds:
+            print("\n  NOTE: No live odds — set ODDS_API_KEY or OPTICODDS_KEY")
+            print("  to enable edge calculations and bet recommendations.")
+        print(f"{'='*60}\n")
+
+
+# ---------------------------------------------------------------------------
+# ENTRY POINT
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    model = NBABettingModel()
+    model.run()
