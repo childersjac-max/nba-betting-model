@@ -8,10 +8,10 @@ on:
 jobs:
   retrain:
     runs-on: ubuntu-latest
-        env:
-          BALLDONTLIE_API_KEY: ${{ secrets.BALLDONTLIE_API_KEY }}
-          ODDS_API_KEY:        ${{ secrets.ODDS_API_KEY }}
-          OPTICODDS_KEY:       ${{ secrets.OPTICODDS_KEY }}
+    env:
+      BALLDONTLIE_API_KEY: ${{ secrets.BALLDONTLIE_API_KEY }}
+      ODDS_API_KEY:        ${{ secrets.ODDS_API_KEY }}
+      OPTICODDS_KEY:       ${{ secrets.OPTICODDS_KEY }}
 
     steps:
       - uses: actions/checkout@v4
