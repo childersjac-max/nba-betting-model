@@ -531,69 +531,118 @@ def _parse_theapi_odds(games):
 
 
 def fetch_odds_opticodds():
-    """Current NBA odds from OpticOdds (OddsJam) — 100+ sportsbooks."""
+    """
+    Current NBA odds from OpticOdds — multi-book, Pinnacle no-vig baseline.
+
+    API flow (required by OpticOdds v3):
+      1. GET /fixtures  → get fixture IDs + team names
+      2. GET /fixtures/odds?fixture_id=X&sportsbook=Y  → odds per fixture per book
+    """
     if not OPTICODDS_KEY:
         print("[Odds-OpticOdds] No key — skipping.")
         return {}
     print("[Odds-OpticOdds] Fetching current NBA odds...")
+    headers = {"X-Api-Key": OPTICODDS_KEY}
+
+    # Step 1 — get upcoming fixture list
     try:
-        headers = {"X-Api-Key": OPTICODDS_KEY}
         r = requests.get(
-            "https://api.opticodds.com/api/v3/fixtures/odds",
+            "https://api.opticodds.com/api/v3/fixtures",
             params={"sport": "basketball", "league": "NBA",
-                    "is_live": "false",
-                    "market_name": ["moneyline", "spread", "total"]},
+                    "status": "unplayed", "is_live": "false"},
             headers=headers, timeout=20,
         )
         r.raise_for_status()
-        fixtures = r.json().get("data", [])
-        print(f"[Odds-OpticOdds] {len(fixtures)} fixtures.")
-        return _parse_opticodds(fixtures)
+        fixtures_meta = r.json().get("data", [])
     except Exception as e:
-        print(f"[Odds-OpticOdds] Error: {e}")
+        print(f"[Odds-OpticOdds] Error fetching fixtures: {e}")
         return {}
 
+    print(f"[Odds-OpticOdds] {len(fixtures_meta)} upcoming fixtures.")
+    if not fixtures_meta:
+        return {}
 
-def _parse_opticodds(fixtures):
+    # Books to query — Pinnacle first (no-vig baseline), then sharp/value books
+    BOOKS_TO_QUERY = ["pinnacle", "draftkings", "fanduel", "betonlineag", "betmgm", "caesars"]
+
     result = {}
-    for f in fixtures:
-        home = (f.get("home_team") or {}).get("name") or f.get("home_team", "")
-        away = (f.get("away_team") or {}).get("name") or f.get("away_team", "")
+    for meta in fixtures_meta:
+        # Team names — OpticOdds uses home_team_display / away_team_display
+        home = meta.get("home_team_display") or ""
+        away = meta.get("away_team_display") or ""
+        if not home or not away:
+            # Fallback to home_competitors array
+            hc = (meta.get("home_competitors") or [{}])[0]
+            ac = (meta.get("away_competitors") or [{}])[0]
+            home = hc.get("name", "")
+            away = ac.get("name", "")
         if not home or not away:
             continue
+
+        fixture_id = meta["id"]
         key = f"{home} vs {away}"
-        bd  = {}
-        ml_home, ml_away = [], []
-        for odd in (f.get("odds") or []):
-            market = (odd.get("market_name") or "").lower()
-            book   = (odd.get("sportsbook") or "").lower()
-            if "moneyline" not in market and "h2h" not in market:
+        bd = {}
+        ml_home_all, ml_away_all = [], []
+
+        # Step 2 — fetch odds per book for this fixture
+        for book in BOOKS_TO_QUERY:
+            try:
+                ro = requests.get(
+                    "https://api.opticodds.com/api/v3/fixtures/odds",
+                    params={"fixture_id": fixture_id,
+                            "sportsbook": book,
+                            "market_name": "moneyline"},
+                    headers=headers, timeout=15,
+                )
+                if ro.status_code != 200:
+                    continue
+                fdata = ro.json().get("data", [{}])[0] if ro.json().get("data") else {}
+                odds_list = fdata.get("odds", [])
+                for odd in odds_list:
+                    if (odd.get("market_id") or "").lower() != "moneyline":
+                        continue
+                    price = odd.get("price")
+                    if not price:
+                        continue
+                    name  = (odd.get("name") or "").lower()
+                    bname = (odd.get("sportsbook") or book).lower()
+                    if home.lower() in name:
+                        ml_home_all.append((bname, int(price)))
+                    elif away.lower() in name:
+                        ml_away_all.append((bname, int(price)))
+                time.sleep(0.3)
+            except Exception:
                 continue
-            price = odd.get("price") or odd.get("american_odds")
-            if not price:
-                continue
-            side = (odd.get("name") or "").lower()
-            if home.lower() in side or "home" in side:
-                ml_home.append((book, int(price)))
-            elif away.lower() in side or "away" in side:
-                ml_away.append((book, int(price)))
-        if ml_home and ml_away:
+
+        if ml_home_all and ml_away_all:
             def bo(lst): return max(lst,
                 key=lambda x: x[1] if x[1] > 0 else 10000 / abs(x[1]))
-            bh, ba = bo(ml_home), bo(ml_away)
+            bh, ba = bo(ml_home_all), bo(ml_away_all)
             bd.update({"h2h_home": bh[1], "h2h_home_book": bh[0],
                        "h2h_away": ba[1], "h2h_away_book": ba[0],
-                       "books_count": len(ml_home)})
-            ph = next((p for b, p in ml_home if "pinnacle" in b), None)
-            pa = next((p for b, p in ml_away if "pinnacle" in b), None)
+                       "books_count": len(ml_home_all)})
+            # Pinnacle no-vig
+            ph = next((p for b, p in ml_home_all if "pinnacle" in b), None)
+            pa = next((p for b, p in ml_away_all if "pinnacle" in b), None)
             if ph and pa:
                 hi, ai = _to_prob(ph), _to_prob(pa)
                 t = hi + ai
-                bd.update({"novig_home": round(hi/t, 4),
-                           "novig_away": round(ai/t, 4),
-                           "sharp_book": "pinnacle"})
-        result[key] = bd
+                bd.update({"novig_home": round(hi / t, 4),
+                           "novig_away": round(ai / t, 4),
+                           "sharp_book": "pinnacle",
+                           "pinnacle_home": ph,
+                           "pinnacle_away": pa})
+
+        if bd:
+            result[key] = bd
+
+    print(f"[Odds-OpticOdds] Parsed odds for {len(result)} games.")
     return result
+
+
+def _parse_opticodds(fixtures):
+    """Legacy shim — not called in v6. Kept for reference."""
+    return {}
 
 
 def merge_odds(theapi_odds, opticodds_odds):
