@@ -108,7 +108,9 @@ def bdl_get(endpoint, params=None):
                 r.raise_for_status()
                 break
             except requests.RequestException as e:
-                if attempt == MAX_RETRIES - 1:
+                is_auth = (isinstance(e, requests.HTTPError) and
+                           getattr(e.response, "status_code", 0) == 401)
+                if attempt == MAX_RETRIES - 1 or is_auth:
                     raise
                 print(f"  Retry {attempt+1}: {e}")
                 time.sleep(15)
@@ -1367,6 +1369,7 @@ class NBABettingModel:
         factors           = get_top_factors(fr, self.model)
         recs              = build_recommendations(hwp, book_odds, factors, home, away)
 
+        book = book_odds or {}
         return {
             "matchup":          f"{home} vs {away}",
             "home":             home,
@@ -1375,8 +1378,20 @@ class NBABettingModel:
             "away_elo":         round(a_elo, 1),
             "home_win_prob":    round(hwp, 3),
             "away_win_prob":    round(1 - hwp, 3),
+            "blend_prob":       round(hwp, 3),   # alias for display
             "lr_prob":          round(lr_p, 3),
             "xgb_prob":         round(xgb_p, 3),
+            # Live odds (populated when Pinnacle/book data available)
+            "pinnacle_home":    book.get("pinnacle_home"),
+            "pinnacle_away":    book.get("pinnacle_away"),
+            "novig_home":       book.get("novig_home"),
+            "novig_away":       book.get("novig_away"),
+            "best_home_odds":   book.get("h2h_home"),
+            "best_away_odds":   book.get("h2h_away"),
+            "best_home_book":   book.get("h2h_home_book"),
+            "best_away_book":   book.get("h2h_away_book"),
+            "books_count":      book.get("books_count", 0),
+            "sharp_book":       book.get("sharp_book", ""),
             "top_factors":      factors,
             "recommendations":  recs,
             "home_player_profile": hp,
@@ -1384,7 +1399,7 @@ class NBABettingModel:
             "home_injuries":    inj_h,
             "away_injuries":    inj_a,
             "has_live_odds":    bool(book_odds),
-            "has_sharp_novig":  bool(book_odds and book_odds.get("novig_home")),
+            "has_sharp_novig":  bool(book.get("novig_home")),
         }
 
     # ── Full pipeline ────────────────────────────────────────────────────────
