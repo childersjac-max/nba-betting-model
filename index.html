@@ -382,19 +382,20 @@ function renderGame(g) {
       <div style="font-size:10px;color:var(--green);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">&#9650; Bet Recommendation${recs.length>1?'s':''}</div>
       ${recs.map(r => {
         const topF    = r.top_factors || [];
-        const typeStr = r.type === 'ML' ? 'Moneyline' : r.type === 'SPREAD' ? 'Spread' : r.type === 'TOTAL' ? 'Total' : r.type;
+        const typeStr = r.type === 'ML' ? 'Moneyline' : r.type === 'SPREAD' ? 'Spread' : r.type === 'TOTAL' ? 'Total' : (r.type || 'ML');
         const sideStr = r.side === 'HOME' ? 'Home team' : r.side === 'AWAY' ? 'Away team' : r.side;
+        const teamName= r.team || (r.side === 'HOME' ? g.home_team : g.away_team) || r.side;
         const oddsStr = fmtOdds(r.odds);
         const book    = r.best_book ? r.best_book.toUpperCase() : '';
         const modelP  = r.model_prob ? (r.model_prob*100).toFixed(1)+'%' : '--';
         const novigP  = r.novig_prob ? (r.novig_prob*100).toFixed(1)+'%' : '--';
-        const edgeP   = '+' + (r.edge*100).toFixed(1) + '% edge';
-        const kellySz = r.kelly_pct;
+        const edgeP   = '+' + ((r.edge||0)*100).toFixed(1) + '% edge';
+        const kellySz = r.kelly_pct != null ? r.kelly_pct : '--';
         return `<div class="rec-block">
           <div class="rec-top">
             <div class="rec-grade-badge ${r.grade}">GRADE ${r.grade}</div>
             <div class="rec-action">
-              <span class="bet-word">BET</span> ${r.team} ${typeStr}<span class="bet-side">(${sideStr})</span>
+              <span class="bet-word">BET</span> ${teamName} ${typeStr}<span class="bet-side">(${sideStr})</span>
             </div>
             <div class="rec-odds-box">
               <div class="rec-odds-val">${oddsStr}</div>
@@ -683,22 +684,28 @@ async function loadStrategy() {
     // Today's game plan
     const todayPlan = games.map(g => {
       const recs   = g.recommendations || [];
-      const inj    = g.home_injuries || {};
-      const injA   = g.away_injuries || {};
+      const inj    = g.injuries?.home || {};
+      const injA   = g.injuries?.away || {};
       const starOut= inj.star_out || injA.star_out;
-      const homeP  = (g.home_win_prob||0.5)*100;
-      const awayP  = (g.away_win_prob||0.5)*100;
+      const ml2    = g.moneyline || {};
+      const homeP  = ((ml2.home_win_prob||0.5)*100).toFixed(1);
+      const awayP  = ((ml2.away_win_prob||0.5)*100).toFixed(1);
+      const homeTeam = g.home_team || g.matchup?.split(' vs ')[0] || 'Home';
+      const awayTeam = g.away_team || g.matchup?.split(' vs ')[1] || 'Away';
 
       if (!recs.length) {
-        let reason = `Model: ${g.home||g.matchup?.split(' vs ')[0]||'Home'} ${homeP.toFixed(1)}% / ${g.away||g.matchup?.split(' vs ')[1]||'Away'} ${awayP.toFixed(1)}%.`;
-        reason += ' No bet — model edge vs Pinnacle no-vig is below the 3% minimum threshold.';
+        let reason = `Model: ${homeTeam} ${homeP}% / ${awayTeam} ${awayP}%. No bet — model edge vs Pinnacle no-vig is below the 3% minimum threshold.`;
         if (starOut) reason += ' ⚠ Star player confirmed out — lines may shift.';
         return {matchup:g.matchup,grade:'PASS',action:'PASS — no qualifying edge found',rationale:reason,cls:'skip'};
       }
 
-      const top    = [...recs].sort((a,b)=>b.edge-a.edge)[0];
-      const action = `BET ${top.team} ${top.side} @ ${fmtOdds(top.odds)} — ${top.kelly_pct}% of bankroll (quarter-Kelly)`;
-      const rationale = top.reason + (top.top_factors?.length ? `. Key factors: ${top.top_factors.slice(0,3).join(', ')}.` : '');
+      const top      = [...recs].sort((a,b)=>(b.edge||0)-(a.edge||0))[0];
+      const topTeam  = top.team || (top.side === 'HOME' ? homeTeam : awayTeam);
+      const topType  = top.type === 'ML' ? 'Moneyline' : top.type === 'SPREAD' ? 'Spread' : (top.type || 'Moneyline');
+      const topSide  = top.side === 'HOME' ? 'home' : top.side === 'AWAY' ? 'away' : (top.side || '').toLowerCase();
+      const topKelly = top.kelly_pct != null ? top.kelly_pct : '--';
+      const action   = `BET ${topTeam} ${topType} (${topSide}) @ ${fmtOdds(top.odds)} — ${topKelly}% of bankroll`;
+      const rationale = (top.reason || '') + (top.top_factors?.length ? `. Key factors: ${top.top_factors.slice(0,3).join(', ')}.` : '');
       return {matchup:g.matchup,grade:top.grade,action,rationale,cls:top.grade==='A'?'':(top.grade==='B'?'warn':'skip')};
     });
 
