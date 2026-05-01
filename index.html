@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -17,184 +16,229 @@
 body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;min-height:100vh;overflow-x:hidden}
 body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,229,255,0.012) 2px,rgba(0,229,255,0.012) 4px);pointer-events:none;z-index:9999}
 
-header{padding:18px 32px;border-bottom:1px solid var(–border);display:flex;align-items:center;justify-content:space-between;background:var(–surface);position:sticky;top:0;z-index:100}
-.logo{font-family:‘Syne’,sans-serif;font-weight:800;font-size:20px;color:var(–accent)}
-.logo span{color:var(–dim);font-weight:400}
+header{padding:18px 32px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface);position:sticky;top:0;z-index:100}
+.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;color:var(--accent)}
+.logo span{color:var(--dim);font-weight:400}
 .header-right{display:flex;align-items:center;gap:16px}
-.updated{font-size:11px;color:var(–dim)}
-.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(–green);margin-right:5px;animation:pulse 2s infinite}
+.updated{font-size:11px;color:var(--dim)}
+.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 
-.tabs{display:flex;border-bottom:1px solid var(–border);background:var(–surface);padding:0 32px}
-.tab{font-family:‘JetBrains Mono’,monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;padding:12px 18px;cursor:pointer;color:var(–dim);border-bottom:2px solid transparent;transition:all 0.2s;background:none;border-top:none;border-left:none;border-right:none}
-.tab:hover{color:var(–text)}
-.tab.active{color:var(–accent);border-bottom-color:var(–accent)}
+.tabs{display:flex;border-bottom:1px solid var(--border);background:var(--surface);padding:0 32px}
+.tab{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;padding:12px 18px;cursor:pointer;color:var(--dim);border-bottom:2px solid transparent;transition:all 0.2s;background:none;border-top:none;border-left:none;border-right:none}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
 
 .main{max-width:1140px;margin:0 auto;padding:24px 20px}
 .tab-content{display:none}
 .tab-content.active{display:block}
 
 .stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px}
-.stat-card{background:var(–surface);border:1px solid var(–border);border-radius:8px;padding:14px;text-align:center}
-.stat-label{font-size:10px;color:var(–dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px}
-.stat-value{font-family:‘Syne’,sans-serif;font-size:20px;font-weight:700;color:var(–accent)}
-.stat-value.green{color:var(–green)}.stat-value.yellow{color:var(–yellow)}.stat-value.red{color:var(–red)}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center}
+.stat-label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px}
+.stat-value{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;color:var(--accent)}
+.stat-value.green{color:var(--green)}.stat-value.yellow{color:var(--yellow)}.stat-value.red{color:var(--red)}
 
-.section-title{font-family:‘Syne’,sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(–dim);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(–border);display:flex;justify-content:space-between;align-items:center}
+.section-title{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--dim);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
 
 /* Game Cards */
 .games-grid{display:grid;gap:14px;margin-bottom:32px}
-.game-card{background:var(–surface);border:1px solid var(–border);border-radius:12px;overflow:hidden;transition:border-color 0.2s}
+.game-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color 0.2s}
 .game-card:hover{border-color:rgba(255,255,255,0.12)}
 .game-card.has-rec{border-color:rgba(0,255,135,0.4)}
 .game-card.b2b{border-color:rgba(255,214,0,0.4)}
 .game-card.star-out{border-color:rgba(255,61,90,0.4)}
 
-.game-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(–border)}
-.matchup{font-family:‘Syne’,sans-serif;font-size:19px;font-weight:800;letter-spacing:-0.5px}
-.matchup .vs{color:var(–border);margin:0 8px}
-.matchup .away{color:var(–dim)}
+.game-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
+.matchup{font-family:'Syne',sans-serif;font-size:19px;font-weight:800;letter-spacing:-0.5px}
+.matchup .vs{color:var(--border);margin:0 8px}
+.matchup .away{color:var(--dim)}
 .hbadges{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 .badge{font-size:10px;letter-spacing:1px;padding:3px 8px;border-radius:3px}
-.badge.rec{background:rgba(0,255,135,0.12);color:var(–green);border:1px solid rgba(0,255,135,0.3)}
-.badge.b2b{background:rgba(255,214,0,0.1);color:var(–yellow);border:1px solid rgba(255,214,0,0.3)}
-.badge.out{background:rgba(255,61,90,0.1);color:var(–red);border:1px solid rgba(255,61,90,0.3)}
-.badge.time{background:rgba(255,255,255,0.04);color:var(–dim);border:1px solid var(–border)}
-.badge.player{background:rgba(179,136,255,0.1);color:var(–purple);border:1px solid rgba(179,136,255,0.3)}
+.badge.rec{background:rgba(0,255,135,0.12);color:var(--green);border:1px solid rgba(0,255,135,0.3)}
+.badge.b2b{background:rgba(255,214,0,0.1);color:var(--yellow);border:1px solid rgba(255,214,0,0.3)}
+.badge.out{background:rgba(255,61,90,0.1);color:var(--red);border:1px solid rgba(255,61,90,0.3)}
+.badge.time{background:rgba(255,255,255,0.04);color:var(--dim);border:1px solid var(--border)}
+.badge.player{background:rgba(179,136,255,0.1);color:var(--purple);border:1px solid rgba(179,136,255,0.3)}
 
 .game-body{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:0}
-.gs{padding:14px 18px;border-right:1px solid var(–border)}
+.gs{padding:14px 18px;border-right:1px solid var(--border)}
 .gs:last-child{border-right:none}
-.gs-label{font-size:10px;color:var(–dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
+.gs-label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
 
-.prob-bar{height:5px;background:var(–border);border-radius:3px;overflow:hidden;margin:5px 0}
-.prob-fill{height:100%;background:linear-gradient(90deg,var(–accent),var(–green));border-radius:3px;transition:width 1s ease}
+.prob-bar{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin:5px 0}
+.prob-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));border-radius:3px;transition:width 1s ease}
 .prob-row{display:flex;justify-content:space-between;margin-top:6px}
-.prob-h{font-family:‘Syne’,sans-serif;font-size:22px;font-weight:800;color:var(–accent)}
-.prob-a{font-family:‘Syne’,sans-serif;font-size:22px;font-weight:800;color:var(–dim)}
+.prob-h{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--accent)}
+.prob-a{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--dim)}
 .model-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
-.mtag{font-size:10px;padding:2px 6px;border-radius:3px;background:rgba(255,255,255,0.04);color:var(–dim)}
-.mtag.agree{background:rgba(0,255,135,0.08);color:var(–green)}
+.mtag{font-size:10px;padding:2px 6px;border-radius:3px;background:rgba(255,255,255,0.04);color:var(--dim)}
+.mtag.agree{background:rgba(0,255,135,0.08);color:var(--green)}
 
-.pred-big{font-family:‘Syne’,sans-serif;font-size:24px;font-weight:800;line-height:1}
-.pred-vs{font-size:11px;color:var(–dim);margin-top:3px}
-.pred-sub{font-size:10px;color:var(–muted);margin-top:3px}
+.pred-big{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;line-height:1}
+.pred-vs{font-size:11px;color:var(--dim);margin-top:3px}
+.pred-sub{font-size:10px;color:var(--muted);margin-top:3px}
 
-/* Recommendations with factor attribution */
-.recs-section{padding:12px 18px;border-top:1px solid var(–border);background:rgba(0,255,135,0.025)}
-.rec-block{padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+/* Recommendations */
+.recs-section{padding:12px 18px;border-top:1px solid var(--border);background:rgba(0,255,135,0.025)}
+.rec-block{padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
 .rec-block:last-child{border-bottom:none}
-.rec-header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
-.rec-grade{font-family:‘Syne’,sans-serif;font-size:13px;font-weight:800;width:22px}
-.grade-A{color:var(–green)}.grade-B{color:var(–yellow)}.grade-C{color:var(–dim)}
-.rec-type{font-size:10px;letter-spacing:1px;padding:2px 7px;border-radius:3px;background:rgba(0,229,255,0.1);color:var(–accent)}
-.rec-side{font-family:‘Syne’,sans-serif;font-size:13px;font-weight:700}
-.rec-edge{font-size:11px;color:var(–green)}
-.rec-kelly{font-size:11px;color:var(–yellow)}
-.rec-reason{font-size:11px;color:var(–dim);margin-bottom:5px}
+.grade-A{color:var(--green)}.grade-B{color:var(--yellow)}.grade-C{color:var(--dim)}
+/* Top row: grade badge + bet headline + odds */
+.rec-top{display:flex;align-items:center;gap:10px;margin-bottom:7px;flex-wrap:wrap}
+.rec-grade-badge{font-family:'Syne',sans-serif;font-size:11px;font-weight:800;padding:3px 9px;border-radius:3px;letter-spacing:1px;flex-shrink:0}
+.rec-grade-badge.A{background:rgba(0,255,135,0.15);color:var(--green);border:1px solid rgba(0,255,135,0.3)}
+.rec-grade-badge.B{background:rgba(255,214,0,0.12);color:var(--yellow);border:1px solid rgba(255,214,0,0.3)}
+.rec-grade-badge.C{background:rgba(255,255,255,0.04);color:var(--muted);border:1px solid var(--border)}
+.rec-action{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:var(--text);flex:1;min-width:0}
+.rec-action .bet-word{color:var(--green)}
+.rec-action .bet-side{font-size:11px;font-weight:400;color:var(--dim);margin-left:5px}
+.rec-odds-box{background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:4px 10px;text-align:center;flex-shrink:0}
+.rec-odds-val{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--text);line-height:1}
+.rec-odds-book{font-size:9px;color:var(--dim);letter-spacing:0.5px;margin-top:1px}
+/* Probability comparison row */
+.rec-prob-row{display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:6px;flex-wrap:wrap}
+.rec-prob-label{color:var(--dim)}
+.rec-prob-model{font-family:'Syne',sans-serif;font-weight:700;color:var(--accent)}
+.rec-prob-arrow{color:var(--dim)}
+.rec-prob-novig{font-family:'Syne',sans-serif;font-weight:700;color:var(--muted)}
+.rec-prob-edge{font-family:'Syne',sans-serif;font-weight:800;color:var(--green);background:rgba(0,255,135,0.1);padding:1px 6px;border-radius:3px}
+.rec-kelly-row{font-size:11px;color:var(--dim);margin-bottom:6px}
+.rec-kelly-row span{color:var(--yellow);font-weight:600}
+/* factors */
 .factors-wrap{display:flex;flex-wrap:wrap;gap:5px}
 .factor-tag{font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid;display:flex;align-items:center;gap:4px}
-.factor-tag.pos{background:rgba(0,255,135,0.06);border-color:rgba(0,255,135,0.2);color:var(–green)}
-.factor-tag.neg{background:rgba(255,61,90,0.06);border-color:rgba(255,61,90,0.2);color:var(–red)}
+.factor-tag.pos{background:rgba(0,255,135,0.06);border-color:rgba(0,255,135,0.2);color:var(--green)}
+.factor-tag.neg{background:rgba(255,61,90,0.06);border-color:rgba(255,61,90,0.2);color:var(--red)}
 
 /* Injuries section */
-.inj-section{padding:10px 18px;border-top:1px solid var(–border);background:rgba(255,61,90,0.025)}
+.inj-section{padding:10px 18px;border-top:1px solid var(--border);background:rgba(255,61,90,0.025)}
 .inj-row{display:flex;gap:8px;align-items:flex-start;margin-bottom:4px;font-size:11px}
 .inj-row:last-child{margin-bottom:0}
 .inj-status{font-weight:600;min-width:90px}
-.inj-status.out{color:var(–red)}.inj-status.q{color:var(–yellow)}
-.inj-names{color:var(–dim)}
+.inj-status.out{color:var(--red)}.inj-status.q{color:var(--yellow)}
+.inj-names{color:var(--dim)}
 
 /* Player stats section */
-.player-section{padding:10px 18px;border-top:1px solid var(–border)}
+.player-section{padding:10px 18px;border-top:1px solid var(--border)}
 .player-teams{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.player-team-title{font-size:10px;color:var(–accent);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
-.player-row{display:grid;grid-template-columns:1fr 28px 28px 28px 40px;gap:4px;font-size:10px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.03);color:var(–dim)}
+.player-team-title{font-size:10px;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+.player-row{display:grid;grid-template-columns:1fr 28px 28px 28px 40px;gap:4px;font-size:10px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.03);color:var(--dim)}
 .player-row:last-child{border-bottom:none}
-.player-row .pname{color:var(–text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.player-row .pname{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .player-row .pval{text-align:right}
-.player-header{display:grid;grid-template-columns:1fr 28px 28px 28px 40px;gap:4px;font-size:9px;color:var(–muted);padding-bottom:3px;border-bottom:1px solid var(–border);letter-spacing:0.5px;margin-bottom:2px}
+.player-header{display:grid;grid-template-columns:1fr 28px 28px 28px 40px;gap:4px;font-size:9px;color:var(--muted);padding-bottom:3px;border-bottom:1px solid var(--border);letter-spacing:0.5px;margin-bottom:2px}
 .team-stats-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04)}
-.tstat{font-size:10px;color:var(–dim)}.tstat span{color:var(–text);margin-left:3px}
+.tstat{font-size:10px;color:var(--dim)}.tstat span{color:var(--text);margin-left:3px}
 
-.elo-row{padding:7px 18px;font-size:11px;color:var(–dim);border-top:1px solid var(–border);display:flex;gap:14px}
-.elo-v{color:var(–text)}
+.elo-row{padding:7px 18px;font-size:11px;color:var(--dim);border-top:1px solid var(--border);display:flex;gap:14px}
+.elo-v{color:var(--text)}
 
-.alert-row{padding:8px 18px;background:rgba(255,214,0,0.05);border-top:1px solid rgba(255,214,0,0.2);font-size:11px;color:var(–yellow)}
+.alert-row{padding:8px 18px;background:rgba(255,214,0,0.05);border-top:1px solid rgba(255,214,0,0.2);font-size:11px;color:var(--yellow)}
 
 /* Backtest Tab */
 .bt-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
-.bt-card{background:var(–surface);border:1px solid var(–border);border-radius:8px;padding:18px}
-.bt-title{font-size:10px;color:var(–dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
-.bt-big{font-family:‘Syne’,sans-serif;font-size:30px;font-weight:800;line-height:1}
-.bt-sub{font-size:11px;color:var(–dim);margin-top:4px}
-.bt-row{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(–border)}
+.bt-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px}
+.bt-title{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
+.bt-big{font-family:'Syne',sans-serif;font-size:30px;font-weight:800;line-height:1}
+.bt-sub{font-size:11px;color:var(--dim);margin-top:4px}
+.bt-row{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border)}
 .bt-row:last-child{border-bottom:none}
-.bt-key{color:var(–dim)}.bt-val{color:var(–text);font-weight:600}
+.bt-key{color:var(--dim)}.bt-val{color:var(--text);font-weight:600}
 
-.chart-wrap{background:var(–surface);border:1px solid var(–border);border-radius:8px;padding:18px;margin-bottom:20px}
-.chart-title{font-size:10px;color:var(–dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px}
+.chart-wrap{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:20px}
+.chart-title{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px}
 canvas{width:100%!important;max-height:180px}
 
 /* Feature importance */
 .fi-bar-wrap{margin-bottom:6px}
-.fi-label{font-size:11px;color:var(–text);margin-bottom:3px;display:flex;justify-content:space-between}
-.fi-bar-bg{height:5px;background:var(–border);border-radius:3px}
-.fi-bar-fill{height:5px;border-radius:3px;background:linear-gradient(90deg,var(–accent),var(–green))}
+.fi-label{font-size:11px;color:var(--text);margin-bottom:3px;display:flex;justify-content:space-between}
+.fi-bar-bg{height:5px;background:var(--border);border-radius:3px}
+.fi-bar-fill{height:5px;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--green))}
 
 .cal-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
-.cal-table th{text-align:left;font-size:10px;color:var(–dim);text-transform:uppercase;letter-spacing:1px;padding:6px 10px;border-bottom:1px solid var(–border)}
+.cal-table th{text-align:left;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;padding:6px 10px;border-bottom:1px solid var(--border)}
 .cal-table td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,0.03)}
-.cal-good{color:var(–green)}.cal-bad{color:var(–red)}
+.cal-good{color:var(--green)}.cal-bad{color:var(--red)}
 
 .month-table{width:100%;border-collapse:collapse;font-size:12px}
-.month-table th{text-align:left;font-size:10px;color:var(–dim);text-transform:uppercase;letter-spacing:1px;padding:6px 10px;border-bottom:1px solid var(–border)}
+.month-table th{text-align:left;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;padding:6px 10px;border-bottom:1px solid var(--border)}
 .month-table td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,0.03)}
 
 /* Strategy Tab */
-.prose{font-size:12px;line-height:1.8;color:var(–text);background:var(–surface);border:1px solid var(–border);border-radius:8px;padding:18px 22px;margin-bottom:20px}
 .strategy-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
-.strategy-card{background:var(–surface);border:1px solid var(–border);border-radius:8px;padding:16px}
+.strategy-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
 .strategy-card.full{grid-column:1/-1}
-.sc-title{font-family:‘Syne’,sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(–accent);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(–border)}
+.sc-title{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
 .rule{display:flex;align-items:flex-start;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
 .rule:last-child{border-bottom:none}
-.rule-num{font-family:‘Syne’,sans-serif;font-weight:800;color:var(–accent);min-width:20px;font-size:14px}
-.rule-text{font-size:12px;color:var(–text)}.rule-sub{font-size:10px;color:var(–dim);margin-top:2px}
+.rule-num{font-family:'Syne',sans-serif;font-weight:800;color:var(--accent);min-width:20px;font-size:14px}
+.rule-text{font-size:12px;color:var(--text)}.rule-sub{font-size:10px;color:var(--dim);margin-top:2px}
 .today-rec{background:rgba(0,255,135,0.03);border:1px solid rgba(0,255,135,0.15);border-radius:6px;padding:12px 14px;margin-bottom:10px}
 .today-rec.warn{background:rgba(255,214,0,0.03);border-color:rgba(255,214,0,0.2)}
-.today-rec.skip{background:rgba(255,255,255,0.01);border-color:var(–border)}
+.today-rec.skip{background:rgba(255,255,255,0.01);border-color:var(--border)}
 .tr-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
-.tr-game{font-family:‘Syne’,sans-serif;font-size:14px;font-weight:700}
-.grade-pill-A{background:rgba(0,255,135,0.15);color:var(–green);padding:2px 10px;border-radius:3px;font-size:11px;font-family:‘Syne’,sans-serif;font-weight:800}
-.grade-pill-B{background:rgba(255,214,0,0.12);color:var(–yellow);padding:2px 10px;border-radius:3px;font-size:11px;font-family:‘Syne’,sans-serif;font-weight:800}
-.grade-pill-PASS{background:rgba(255,255,255,0.04);color:var(–muted);padding:2px 10px;border-radius:3px;font-size:11px;font-family:‘Syne’,sans-serif;font-weight:800}
-.tr-action{font-size:12px;color:var(–text);margin-bottom:3px}
-.tr-rationale{font-size:11px;color:var(–dim)}
+.tr-game{font-family:'Syne',sans-serif;font-size:14px;font-weight:700}
+.grade-pill-A{background:rgba(0,255,135,0.15);color:var(--green);padding:2px 10px;border-radius:3px;font-size:11px;font-family:'Syne',sans-serif;font-weight:800}
+.grade-pill-B{background:rgba(255,214,0,0.12);color:var(--yellow);padding:2px 10px;border-radius:3px;font-size:11px;font-family:'Syne',sans-serif;font-weight:800}
+.grade-pill-PASS{background:rgba(255,255,255,0.04);color:var(--muted);padding:2px 10px;border-radius:3px;font-size:11px;font-family:'Syne',sans-serif;font-weight:800}
+.tr-action{font-size:12px;color:var(--text);margin-bottom:3px}
+.tr-rationale{font-size:11px;color:var(--dim)}
 .insight-list{list-style:none;padding:0}
 .insight-list li{padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:12px;display:flex;align-items:flex-start;gap:8px}
 .insight-list li:last-child{border-bottom:none}
-.ins-icon{min-width:14px;color:var(–accent)}
+.ins-icon{min-width:14px;color:var(--accent)}
+/* pillar cards */
+.pillar-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.pillar{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px}
+.pillar-icon{font-size:20px;margin-bottom:8px}
+.pillar-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px}
+.pillar-body{font-size:11px;color:var(--dim);line-height:1.65}
+/* how-it-works flow */
+.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-bottom:20px;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.flow-step{padding:14px;border-right:1px solid var(--border);position:relative}
+.flow-step:last-child{border-right:none}
+.flow-n{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:rgba(0,229,255,0.12);line-height:1;margin-bottom:6px}
+.flow-title{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--text);margin-bottom:5px}
+.flow-body{font-size:11px;color:var(--dim);line-height:1.6}
+/* output glossary */
+.gloss{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:20px}
+.gloss-row{display:grid;grid-template-columns:140px 1fr;border-bottom:1px solid rgba(255,255,255,0.04)}
+.gloss-row:last-child{border-bottom:none}
+.gloss-term{padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--accent);background:rgba(0,229,255,0.03);display:flex;align-items:center}
+.gloss-def{padding:10px 14px;font-size:12px;color:var(--dim);line-height:1.55;display:flex;align-items:center}
+.gloss-def strong{color:var(--text);font-weight:600}
+/* grade legend */
+.grade-legend{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.gl-item{flex:1;min-width:140px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px}
+.gl-badge{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;margin-bottom:6px}
+.gl-badge.A{color:var(--green)}.gl-badge.B{color:var(--yellow)}.gl-badge.C{color:var(--muted)}.gl-badge.P{color:var(--dim)}
+.gl-title{font-size:12px;color:var(--text);margin-bottom:4px;font-weight:600}
+.gl-body{font-size:11px;color:var(--dim);line-height:1.55}
 
-.no-odds-notice{background:rgba(255,214,0,0.05);border:1px solid rgba(255,214,0,0.2);border-radius:6px;padding:9px 14px;font-size:11px;color:var(–yellow);margin-bottom:18px}
-.loading{text-align:center;padding:60px 20px;color:var(–dim)}
-.spinner{width:34px;height:34px;border:2px solid var(–border);border-top-color:var(–accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 14px}
+.no-odds-notice{background:rgba(255,214,0,0.05);border:1px solid rgba(255,214,0,0.2);border-radius:6px;padding:9px 14px;font-size:11px;color:var(--yellow);margin-bottom:18px}
+.loading{text-align:center;padding:60px 20px;color:var(--dim)}
+.spinner{width:34px;height:34px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 14px}
 @keyframes spin{to{transform:rotate(360deg)}}
-.refresh-btn{background:transparent;border:1px solid var(–accent);color:var(–accent);font-family:‘JetBrains Mono’,monospace;font-size:10px;padding:5px 12px;border-radius:4px;cursor:pointer;letter-spacing:1px;transition:all 0.2s}
-.refresh-btn:hover{background:var(–accent);color:var(–bg)}
-.no-data{text-align:center;padding:40px;color:var(–dim);font-size:13px}
+.refresh-btn{background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:10px;padding:5px 12px;border-radius:4px;cursor:pointer;letter-spacing:1px;transition:all 0.2s}
+.refresh-btn:hover{background:var(--accent);color:var(--bg)}
+.no-data{text-align:center;padding:40px;color:var(--dim);font-size:13px}
 
 @media(max-width:700px){
-.stats-bar{grid-template-columns:repeat(2,1fr)}
-.game-body{grid-template-columns:1fr}
-.gs{border-right:none;border-bottom:1px solid var(–border)}
-.bt-grid,.strategy-grid,.player-teams{grid-template-columns:1fr}
-.strategy-card.full{grid-column:1}
-.tabs{padding:0 12px}
-.tab{padding:10px 10px;font-size:10px}
+  .stats-bar{grid-template-columns:repeat(2,1fr)}
+  .game-body{grid-template-columns:1fr}
+  .gs{border-right:none;border-bottom:1px solid var(--border)}
+  .bt-grid,.strategy-grid,.player-teams{grid-template-columns:1fr}
+  .strategy-card.full{grid-column:1}
+  .tabs{padding:0 12px}
+  .tab{padding:10px 10px;font-size:10px}
+  .pillar-grid{grid-template-columns:repeat(2,1fr)}
+  .flow{grid-template-columns:1fr 1fr}
+  .flow-step{border-right:none;border-bottom:1px solid var(--border)}
+  .flow-step:nth-child(2n){border-right:none}
+  .grade-legend{flex-direction:column}
 }
 </style>
-
 </head>
 <body>
 
@@ -213,7 +257,6 @@ canvas{width:100%!important;max-height:180px}
 </div>
 
 <!-- ═══ PICKS ═══ -->
-
 <div id="tab-picks" class="tab-content active">
 <div class="main">
   <div class="stats-bar">
@@ -233,7 +276,6 @@ canvas{width:100%!important;max-height:180px}
 </div>
 
 <!-- ═══ BACKTEST ═══ -->
-
 <div id="tab-backtest" class="tab-content">
 <div class="main">
   <div id="bt-container">
@@ -243,7 +285,6 @@ canvas{width:100%!important;max-height:180px}
 </div>
 
 <!-- ═══ STRATEGY ═══ -->
-
 <div id="tab-strategy" class="tab-content">
 <div class="main">
   <div id="strategy-container">
@@ -253,7 +294,6 @@ canvas{width:100%!important;max-height:180px}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-
 <script>
 function switchTab(name, el) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -284,7 +324,11 @@ async function loadPicks() {
       document.getElementById('sp-mae').textContent  = (ms.spread_mae||'--')+' pts';
       document.getElementById('tot-mae').textContent = (ms.totals_mae||'--')+' pts';
     }
-    if (!data.has_live_odds) document.getElementById('no-odds-notice').style.display='block';
+    if (!data.has_live_odds) {
+      document.getElementById('no-odds-notice').style.display='block';
+      document.getElementById('no-odds-notice').textContent =
+        'No live odds fetched — OpticOdds returned no lines for today. Predictions are shown without bet recommendations.';
+    }
     const games = data.games || [];
     document.getElementById('games-title').textContent =
       games.length ? `TODAY'S PICKS (${games.length})` : 'NO GAMES TODAY';
@@ -304,7 +348,7 @@ function fmtOdds(o) { return !o ? '--' : o>0 ? '+'+o : String(o); }
 function fmtPct(v) { return v ? (v*100).toFixed(1)+'%' : '--'; }
 
 function renderGame(g) {
-  if (g.error) return `<div class="game-card" style="padding:16px;color:var(--red)">${g.matchup || 'Unknown'}: ${g.error}</div>`;
+  if (g.error) return `<div class="game-card" style="padding:16px;color:var(--red)">${g.matchup}: ${g.error}</div>`;
 
   const ml   = g.moneyline      || {};
   const sp   = g.spread         || {};
@@ -316,56 +360,57 @@ function renderGame(g) {
   const pp   = g.player_profiles|| {};
   const facs = g.top_factors    || [];
 
-  // Safely extract team names from multiple possible locations
-  const homeTeam = g.home_team || (g.matchup||'').split(' vs ')[0] || 'HOME';
-  const awayTeam = g.away_team || (g.matchup||'').split(' vs ')[1] || 'AWAY';
-
-  // Win probs — handle both 0-1 and percentage formats
-  const hwpRaw = ml.home_win_prob ?? 0.5;
-  const awpRaw = ml.away_win_prob ?? (1 - hwpRaw);
-  const hwp    = (hwpRaw * 100).toFixed(1);
-  const awp    = (awpRaw * 100).toFixed(1);
-
+  const hwp      = ((ml.home_win_prob||0.5)*100).toFixed(1);
+  const awp      = ((ml.away_win_prob||0.5)*100).toFixed(1);
   const hasRec   = recs.length > 0;
   const hasInj   = (inj.home?.out?.length||0)+(inj.away?.out?.length||0) > 0;
   const starOut  = inj.home?.star_out || inj.away?.star_out;
   const hasAlert = (g.fatigue_alert||[]).length > 0;
   const hasPP    = pp.has_data && (pp.home?.top_players?.length||0) > 0;
 
-  const marginVal = sp.predicted_margin;
-  const margin = marginVal !== undefined && marginVal !== null
-    ? (marginVal>=0?'+':'')+Number(marginVal).toFixed(1) : '--';
-  const total  = tot.predicted_total ? Number(tot.predicted_total).toFixed(1) : '--';
+  const margin = sp.predicted_margin !== undefined
+    ? (sp.predicted_margin>=0?'+':'')+sp.predicted_margin.toFixed(1) : '--';
+  const total  = tot.predicted_total || '--';
 
-  // Book odds — handle both old field names (h2h_home) and new (avg_ml_home)
-  const bookH2hHome = book.h2h_home || book.avg_ml_home;
-  const bookH2hAway = book.h2h_away || book.avg_ml_away;
-  const bookSpLine  = book.spread_line ?? book.avg_spread_line;
-  const bookTotLine = book.total_line_over ?? book.avg_total_line ?? book.total_line;
+  const bookML  = book.h2h_home ? `<div style="font-size:10px;color:var(--dim);margin-top:3px">Book: ${fmtOdds(book.h2h_home)} / ${fmtOdds(book.h2h_away)}</div>` : '';
+  const bookSP  = book.spread_line!=null ? `<div class="pred-vs">Book: ${book.spread_line>0?'+':''}${book.spread_line}</div>` : '';
+  const bookTOT = book.total_line ? `<div class="pred-vs">Book: ${book.total_line}</div>` : '';
 
-  const bookML  = bookH2hHome ? `<div style="font-size:10px;color:var(--dim);margin-top:3px">Book: ${fmtOdds(bookH2hHome)} / ${fmtOdds(bookH2hAway)}</div>` : '';
-  const bookSP  = bookSpLine!=null ? `<div class="pred-vs">Book: ${bookSpLine>0?'+':''}${bookSpLine}</div>` : '';
-  const bookTOT = bookTotLine ? `<div class="pred-vs">Book: ${bookTotLine}</div>` : '';
-
-  // Recommendations with factor attribution
+  // Recommendations
   const recsHtml = hasRec ? `
     <div class="recs-section">
+      <div style="font-size:10px;color:var(--green);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">&#9650; Bet Recommendation${recs.length>1?'s':''}</div>
       ${recs.map(r => {
-        const topF   = r.top_factors || [];
-        const novig  = r.novig_prob ? ` / no-vig: ${(r.novig_prob*100).toFixed(1)}%` : '';
-        const bookTag= r.best_book  ? `<span class="mtag" style="color:var(--yellow)">${r.best_book.toUpperCase()}</span>` : '';
-        const disagr = r.ml_disagreement > 8 ? `<span class="mtag" style="color:var(--purple)">BOOKS SPLIT</span>` : '';
-        const bkCount= r.books_count > 1 ? `<span class="mtag">${r.books_count} books</span>` : '';
+        const topF    = r.top_factors || [];
+        const typeStr = r.type === 'ML' ? 'Moneyline' : r.type === 'SPREAD' ? 'Spread' : r.type === 'TOTAL' ? 'Total' : r.type;
+        const sideStr = r.side === 'HOME' ? 'Home team' : r.side === 'AWAY' ? 'Away team' : r.side;
+        const oddsStr = fmtOdds(r.odds);
+        const book    = r.best_book ? r.best_book.toUpperCase() : '';
+        const modelP  = r.model_prob ? (r.model_prob*100).toFixed(1)+'%' : '--';
+        const novigP  = r.novig_prob ? (r.novig_prob*100).toFixed(1)+'%' : '--';
+        const edgeP   = '+' + (r.edge*100).toFixed(1) + '% edge';
+        const kellySz = r.kelly_pct;
         return `<div class="rec-block">
-          <div class="rec-header">
-            <div class="rec-grade grade-${r.grade}">${r.grade}</div>
-            <div class="rec-type">${r.type}</div>
-            <div class="rec-side">${r.side}</div>
-            <div class="rec-edge">+${(r.edge*100).toFixed(1)}% edge</div>
-            <div class="rec-kelly">${r.kelly_pct}% Kelly</div>
-            ${bookTag}${disagr}${bkCount}
+          <div class="rec-top">
+            <div class="rec-grade-badge ${r.grade}">GRADE ${r.grade}</div>
+            <div class="rec-action">
+              <span class="bet-word">BET</span> ${r.team} ${typeStr}<span class="bet-side">(${sideStr})</span>
+            </div>
+            <div class="rec-odds-box">
+              <div class="rec-odds-val">${oddsStr}</div>
+              ${book ? `<div class="rec-odds-book">${book}</div>` : ''}
+            </div>
           </div>
-          <div class="rec-reason">${r.reason}${novig}</div>
+          <div class="rec-prob-row">
+            <span class="rec-prob-label">Our model:</span>
+            <span class="rec-prob-model">${modelP}</span>
+            <span class="rec-prob-arrow">&rarr;</span>
+            <span class="rec-prob-label">Pinnacle no-vig:</span>
+            <span class="rec-prob-novig">${novigP}</span>
+            <span class="rec-prob-arrow">&rarr;</span>
+            <span class="rec-prob-edge">${edgeP}</span>
+          </div>
+          <div class="rec-kelly-row">Bet size: <span>${kellySz}% of bankroll</span> (quarter-Kelly — never exceed this)</div>
           ${topF.length ? `<div class="factors-wrap">
             ${topF.map(f=>`<div class="factor-tag pos">&uarr; ${f}</div>`).join('')}
           </div>` : ''}
@@ -389,10 +434,10 @@ function renderGame(g) {
   const injHtml = (hasInj || inj.home?.questionable?.length || inj.away?.questionable?.length) ? `
     <div class="inj-section">
       <div style="font-size:10px;color:var(--red);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Injury Report</div>
-      ${inj.home?.out?.length ? `<div class="inj-row"><div class="inj-status out">OUT (${homeTeam})</div><div class="inj-names">${inj.home.out.join(', ')}</div></div>` : ''}
-      ${inj.home?.questionable?.length ? `<div class="inj-row"><div class="inj-status q">QST (${homeTeam})</div><div class="inj-names">${inj.home.questionable.join(', ')}</div></div>` : ''}
-      ${inj.away?.out?.length ? `<div class="inj-row"><div class="inj-status out">OUT (${awayTeam})</div><div class="inj-names">${inj.away.out.join(', ')}</div></div>` : ''}
-      ${inj.away?.questionable?.length ? `<div class="inj-row"><div class="inj-status q">QST (${awayTeam})</div><div class="inj-names">${inj.away.questionable.join(', ')}</div></div>` : ''}
+      ${inj.home?.out?.length ? `<div class="inj-row"><div class="inj-status out">OUT (${g.home_team})</div><div class="inj-names">${inj.home.out.join(', ')}</div></div>` : ''}
+      ${inj.home?.questionable?.length ? `<div class="inj-row"><div class="inj-status q">QST (${g.home_team})</div><div class="inj-names">${inj.home.questionable.join(', ')}</div></div>` : ''}
+      ${inj.away?.out?.length ? `<div class="inj-row"><div class="inj-status out">OUT (${g.away_team})</div><div class="inj-names">${inj.away.out.join(', ')}</div></div>` : ''}
+      ${inj.away?.questionable?.length ? `<div class="inj-row"><div class="inj-status q">QST (${g.away_team})</div><div class="inj-names">${inj.away.questionable.join(', ')}</div></div>` : ''}
     </div>` : '';
 
   // Player stats section
@@ -400,7 +445,7 @@ function renderGame(g) {
     <div class="player-section">
       <div style="font-size:10px;color:var(--purple);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">Player Stats</div>
       <div class="player-teams">
-        ${[['home',homeTeam],['away',awayTeam]].map(([side,abbr]) => {
+        ${[['home',g.home_team],['away',g.away_team]].map(([side,abbr]) => {
           const prof = pp[side] || {};
           const players = prof.top_players || [];
           return `<div>
@@ -433,7 +478,7 @@ function renderGame(g) {
   <div class="game-card ${hasRec?'has-rec':''} ${hasAlert?'b2b':''} ${starOut?'star-out':''}">
     <div class="game-header">
       <div class="matchup">
-        <span>${homeTeam}</span><span class="vs">vs</span><span class="away">${awayTeam}</span>
+        <span>${g.home_team}</span><span class="vs">vs</span><span class="away">${g.away_team}</span>
       </div>
       <div class="hbadges">
         ${hasRec?'<span class="badge rec">EDGE FOUND</span>':''}
@@ -448,15 +493,15 @@ function renderGame(g) {
       <div class="gs">
         <div class="gs-label">Win Probability</div>
         <div style="font-size:10px;color:var(--dim);display:flex;justify-content:space-between;margin-bottom:3px">
-          <span>${homeTeam}</span><span>${awayTeam}</span>
+          <span>${g.home_team}</span><span>${g.away_team}</span>
         </div>
         <div class="prob-bar"><div class="prob-fill" data-w="${hwp}" style="width:0%"></div></div>
         <div class="prob-row"><div class="prob-h">${hwp}%</div><div class="prob-a">${awp}%</div></div>
         ${bookML}
         <div class="model-tags">
-          <span class="mtag">LR ${ml.lr_prob!=null?((ml.lr_prob)*100).toFixed(0)+'%':'--'}</span>
-          <span class="mtag">XGB ${ml.xgb_prob!=null?((ml.xgb_prob)*100).toFixed(0)+'%':'--'}</span>
-          <span class="mtag">ELO ${ml.elo_prob!=null?((ml.elo_prob)*100).toFixed(0)+'%':'--'}</span>
+          <span class="mtag">LR ${((ml.lr_prob||0)*100).toFixed(0)}%</span>
+          <span class="mtag">XGB ${((ml.xgb_prob||0)*100).toFixed(0)}%</span>
+          <span class="mtag">ELO ${((ml.elo_prob||0)*100).toFixed(0)}%</span>
           <span class="mtag ${ml.model_consensus?'agree':''}">${ml.model_consensus?'AGREE':'SPLIT'}</span>
         </div>
       </div>
@@ -482,7 +527,7 @@ function renderGame(g) {
 
     <div class="elo-row">
       <span>ELO <span class="elo-v">${elo.home||'--'}</span> vs <span class="elo-v">${elo.away||'--'}</span></span>
-      <span>DIFF <span class="elo-v">${elo.diff!=null?(elo.diff>=0?'+':'')+elo.diff:'--'}</span></span>
+      <span>DIFF <span class="elo-v">${elo.diff>=0?'+':''}${elo.diff||'--'}</span></span>
     </div>
   </div>`;
 }
@@ -624,125 +669,217 @@ async function loadStrategy() {
       fetch('./backtest.json?t='+Date.now()).then(r=>r.json()).catch(()=>null),
     ]);
 
-    const games   = pred?.games || [];
-    const ml      = bt?.ml     || {};
-    const sp      = bt?.spread || {};
-    const tot     = bt?.totals || {};
-    const monthly = bt?.monthly|| [];
-    const fi      = bt?.feature_importance || [];
+    const games    = pred?.games || [];
+    const ms       = pred?.model_stats || {};
+    const fi       = bt?.feature_importance || [];
+    const ml       = bt?.ml || {};
+    const monthly  = bt?.monthly || [];
 
-    const acc     = ml.accuracy ? (ml.accuracy*100).toFixed(1) : null;
-    const roi     = ml.roi_pct;
-    const bets    = ml.bets_placed || 0;
-    const months  = monthly.map(m=>m.month);
-    const dateRange = months.length ? `${months[0]} through ${months[months.length-1]}` : 'this season';
-
-    const bestM  = monthly.length ? monthly.reduce((a,b)=>a.accuracy>b.accuracy?a:b) : null;
-    const worstM = monthly.length ? monthly.reduce((a,b)=>a.accuracy<b.accuracy?a:b) : null;
-    const b2bGames = games.filter(g=>(g.fatigue_alert||[]).length>0);
-    const injGames = games.filter(g=>(g.injuries?.home?.out?.length||0)+(g.injuries?.away?.out?.length||0)>0);
-    const allRecs  = games.flatMap(g=>(g.recommendations||[]).map(r=>({...r,matchup:g.matchup})));
-    const gradeA   = allRecs.filter(r=>r.grade==='A');
-    const hasPlayer= pred?.has_player_data || false;
-    const hasInj   = pred?.has_injury_data || false;
-
-    const insights = [];
-    if (acc) {
-      const n = parseFloat(acc);
-      if (n>=62) insights.push({i:'>',t:`Strong accuracy at ${acc}% — well above the 52.4% break-even. Moneyline bets on Grade A edges are justified.`});
-      else if (n>=55) insights.push({i:'>',t:`Solid accuracy at ${acc}% — above break-even. Focus exclusively on Grade A edges (6%+) and require model consensus.`});
-      else insights.push({i:'!',t:`Accuracy of ${acc}% is near break-even. Be very selective — only Grade A edges with consensus and no B2B flag.`});
-    }
-    if (roi!==undefined&&roi!==null) {
-      if (roi>0) insights.push({i:'>',t:`Simulated ROI of +${roi}% across ${bets} qualifying bets — a profitable edge exists on this season's data.`});
-      else insights.push({i:'!',t:`Simulated ROI of ${roi}% — edge is thin at 55% threshold. Consider raising MIN_EDGE to 5% in the model config.`});
-    }
-    if (hasPlayer) insights.push({i:'>',t:`Player stats (PTS/REB/AST/FG%/3P%/BPM/VORP/PER) are active — model incorporates roster quality, shooting efficiency, and lineup depth differentials.`});
-    if (hasInj)    insights.push({i:'>',t:`Official NBA injury reports are active — Out and Questionable designations are factored into lineup quality scores and flagged on game cards.`});
-    if (sp.mae)    insights.push({i:'>',t:`Spread MAE of ${sp.mae} pts — bet spreads only when model differs from book by 4+ points (Grade A/B). Within that range, win rate is significantly above average.`});
-    if (tot.mae)   insights.push({i:'>',t:`Totals MAE of ${tot.mae} pts — pace mismatch between fast and slow teams creates the best totals opportunities. Check pace_roll10 differential.`});
-    if (bestM)     insights.push({i:'>',t:`Best month: ${bestM.month} at ${(bestM.accuracy*100).toFixed(1)}% — mid-season when rolling averages are fully populated and team identities are set.`});
-    if (worstM)    insights.push({i:'>',t:`Weakest month: ${worstM.month} at ${(worstM.accuracy*100).toFixed(1)}% — model is less reliable early season. Reduce bet sizes October-November.`});
-    if (b2bGames.length) insights.push({i:'!',t:`${b2bGames.length} B2B game(s) today — B2B road teams historically cover at only 44%. Prioritise fading B2B teams.`});
-    if (injGames.length) insights.push({i:'!',t:`${injGames.length} game(s) today with confirmed-out players — check the injury cards on the Picks tab before placing bets.`});
-    if (fi.length) insights.push({i:'>',t:`Top model features: ${fi.slice(0,3).map(f=>f.label||f.feature).join(', ')}. These variables drive the most predictive power — look for large differentials in these metrics.`});
+    const acc      = ml.accuracy ? (ml.accuracy*100).toFixed(1) : null;
+    const accNum   = parseFloat(acc||0);
+    const trainGms = bt?.train_games || '--';
+    const allRecs  = games.flatMap(g => g.recommendations || []);
 
     // Today's game plan
     const todayPlan = games.map(g => {
       const recs   = g.recommendations || [];
-      const alerts = g.fatigue_alert   || [];
-      const ml2    = g.moneyline       || {};
-      const sp2    = g.spread          || {};
-      const tot2   = g.totals          || {};
-      const inj2   = g.injuries        || {};
-      const outH   = inj2.home?.out || [];
-      const outA   = inj2.away?.out || [];
-      const starOut= inj2.home?.star_out||inj2.away?.star_out;
+      const inj    = g.home_injuries || {};
+      const injA   = g.away_injuries || {};
+      const starOut= inj.star_out || injA.star_out;
+      const homeP  = (g.home_win_prob||0.5)*100;
+      const awayP  = (g.away_win_prob||0.5)*100;
 
       if (!recs.length) {
-        let reason = `Model win prob: home ${((ml2.home_win_prob||0.5)*100).toFixed(1)}% / away ${((ml2.away_win_prob||0.5)*100).toFixed(1)}%. No significant edge over book lines detected.`;
-        if (starOut) reason += ' WARNING: star player confirmed out — lines may shift.';
-        return {matchup:g.matchup,grade:'PASS',action:'No bet — insufficient edge',rationale:reason,cls:'skip'};
+        let reason = `Model: ${g.home||g.matchup?.split(' vs ')[0]||'Home'} ${homeP.toFixed(1)}% / ${g.away||g.matchup?.split(' vs ')[1]||'Away'} ${awayP.toFixed(1)}%.`;
+        reason += ' No bet — model edge vs Pinnacle no-vig is below the 3% minimum threshold.';
+        if (starOut) reason += ' ⚠ Star player confirmed out — lines may shift.';
+        return {matchup:g.matchup,grade:'PASS',action:'PASS — no qualifying edge found',rationale:reason,cls:'skip'};
       }
 
-      const top = recs.sort((a,b)=>b.edge-a.edge)[0];
-      const b2b = alerts.length ? ` Reduce size 50% — ${alerts.join(', ')}.` : '';
-      const injNote = outH.length||outA.length ? ` NOTE: ${[...outH.map(p=>g.home_team+' '+p),...outA.map(p=>g.away_team+' '+p)].join(', ')} confirmed out.` : '';
-      const kellySz = alerts.length ? (top.kelly_pct/2).toFixed(1) : top.kelly_pct;
-      const action = `BET ${top.type} ${top.side} @ ${fmtOdds(top.odds)} — ${kellySz}% Kelly${alerts.length?` (halved for B2B)`:''}`;
-      const rationale = `${top.reason}.${b2b}${injNote} Top factors: ${(top.top_factors||[]).slice(0,3).join(', ')}.`;
-
-      return {
-        matchup:g.matchup,
-        grade:top.grade,
-        action,rationale,
-        cls:top.grade==='A'?'':(top.grade==='B'?'warn':'skip')
-      };
+      const top    = [...recs].sort((a,b)=>b.edge-a.edge)[0];
+      const action = `BET ${top.team} ${top.side} @ ${fmtOdds(top.odds)} — ${top.kelly_pct}% of bankroll (quarter-Kelly)`;
+      const rationale = top.reason + (top.top_factors?.length ? `. Key factors: ${top.top_factors.slice(0,3).join(', ')}.` : '');
+      return {matchup:g.matchup,grade:top.grade,action,rationale,cls:top.grade==='A'?'':(top.grade==='B'?'warn':'skip')};
     });
 
+    const modelOk  = accNum >= 55;
+    const accColor = accNum >= 62 ? 'var(--green)' : accNum >= 55 ? 'var(--yellow)' : 'var(--red)';
+    const gradeAToday = allRecs.filter(r=>r.grade==='A').length;
+    const gradeBToday = allRecs.filter(r=>r.grade==='B').length;
+
+    const bestM  = monthly.length ? monthly.reduce((a,b)=>a.accuracy>b.accuracy?a:b) : null;
+    const worstM = monthly.length ? monthly.reduce((a,b)=>a.accuracy<b.accuracy?a:b) : null;
+
     c.innerHTML = `
-      <div class="section-title">MODEL METHODOLOGY</div>
-      <div class="prose">
-        This model uses an ensemble of Logistic Regression and XGBoost classifiers to predict NBA game outcomes, retrained on every run using the complete current season game log from balldontlie. Features are engineered from rolling averages (5, 10, 20 game windows) of points scored, allowed, differential and total, with exponentially weighted momentum that emphasises recent form. Rest and fatigue signals capture back-to-back games and days of rest. Player-level features — sourced from api.server.nbaapi.com — add roster quality scores, BPM, PER, VORP, TS%, FG%, 3P%, FT%, and average turnovers per team. Official NBA injury reports from the nbainjuries package provide real-time Out and Questionable designations, converted into a lineup impact score weighted by each player's scoring share. ELO ratings updated after every game using margin-aware K factors provide a long-run team strength baseline. All models use time-series cross-validation to prevent look-ahead bias, and moneyline probabilities are Platt-calibrated. When live lines are available via The Odds API, the model computes no-vig implied probabilities and flags any bet where the model edge exceeds 3%, sized with quarter-Kelly criterion. Each flagged bet displays the top 3-6 contributing factors — the specific statistical advantages that drove the recommendation.
+
+      <!-- ══ WHAT THE MODEL ANALYZES ══ -->
+      <div class="section-title">WHAT THE MODEL ANALYZES</div>
+      <div class="pillar-grid">
+        <div class="pillar">
+          <div class="pillar-icon">📊</div>
+          <div class="pillar-title">Team Performance</div>
+          <div class="pillar-body">Rolling averages over the last 5, 10, and 20 games for points scored, points allowed, scoring margin, and pace. Exponentially weighted trends that give more weight to recent games. Net rating (offensive efficiency minus defensive efficiency) per 100 possessions.</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-icon">🏆</div>
+          <div class="pillar-title">Historical Strength (Elo)</div>
+          <div class="pillar-body">Each team has an Elo rating that updates after every game based on the result and margin of victory. A team's current Elo reflects their true strength over the whole season — not just recent games. The Elo difference between two teams predicts the expected win probability without any other data.</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-icon">😴</div>
+          <div class="pillar-title">Rest &amp; Fatigue</div>
+          <div class="pillar-body">Days of rest since the last game (capped at 14 days). Back-to-back flag when a team plays on consecutive days. Teams on back-to-backs — especially on the road — underperform expectations and this signal is used to reduce confidence and bet size.</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-icon">🧑‍🤝‍🧑</div>
+          <div class="pillar-title">Roster Quality</div>
+          <div class="pillar-body">Current-season player stats: points, rebounds, assists, field goal %, three-point %, Box Plus/Minus (BPM), Player Efficiency Rating (PER), and Value Over Replacement (VORP). These are summed per team and compared — a large quality gap between rosters is a significant predictor.</div>
+        </div>
       </div>
 
-      <div class="section-title">BACKTEST INSIGHTS — ${dateRange}</div>
-      <div class="bt-card" style="margin-bottom:20px">
-        <div class="bt-title">Walk-forward test: trained on 70% of season (${bt?.train_games||'--'} games), tested on final 30% (${bt?.test_games||'--'} games)</div>
-        <ul class="insight-list">
-          ${insights.map(i=>`<li><span class="ins-icon">${i.i}</span><span>${i.t}</span></li>`).join('')}
-          ${!insights.length?'<li><span class="ins-icon">!</span><span>Run the model to generate insights.</span></li>':''}
-        </ul>
+      <!-- ══ HOW IT WORKS ══ -->
+      <div class="section-title">HOW A PREDICTION IS MADE</div>
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-n">01</div>
+          <div class="flow-title">Build Features</div>
+          <div class="flow-body">For each upcoming game, the model computes ~60 features per team — rolling stats, Elo, rest, and roster quality — all based only on information available before tip-off. No future data leaks in.</div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-n">02</div>
+          <div class="flow-title">Run Two Models</div>
+          <div class="flow-body">Logistic Regression (LR) and XGBoost (XGB) each produce a win probability independently. They were trained on ${trainGms} completed games from the last 4 seasons. Both are shown separately so you can see if they agree.</div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-n">03</div>
+          <div class="flow-title">Blend the Prediction</div>
+          <div class="flow-body">The final win probability is a weighted blend: 45% from LR + 55% from XGB. LR is stable and well-calibrated; XGB captures non-linear patterns. When both models agree within 5%, the signal is stronger.</div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-n">04</div>
+          <div class="flow-title">Compare to Pinnacle</div>
+          <div class="flow-body">Pinnacle sportsbook is the sharpest market in the world. Their moneyline odds — with the bookmaker cut removed ("no-vig") — are the fairest estimate of true probability. If our model says 62% and Pinnacle says 55%, the 7% gap is the potential edge.</div>
+        </div>
       </div>
 
-      <div class="section-title">OVERALL BETTING STRATEGY</div>
+      <!-- ══ UNDERSTANDING THE OUTPUT ══ -->
+      <div class="section-title">UNDERSTANDING WHAT YOU SEE ON THE PICKS TAB</div>
+      <div class="gloss">
+        <div class="gloss-row">
+          <div class="gloss-term">Win Probability</div>
+          <div class="gloss-def">The model's estimate that the home (left) or away (right) team wins. <strong>62% home</strong> means our model thinks the home team wins about 6 times in 10. The bar shows the split visually. This is NOT the odds — it's the raw probability.</div>
+        </div>
+        <div class="gloss-row">
+          <div class="gloss-term">LR / XGB</div>
+          <div class="gloss-def">The individual predictions from each model before blending. <strong>If they're close to each other</strong> (within 5%), the signal is considered consensus and is more reliable. If they diverge significantly, treat the pick with more caution.</div>
+        </div>
+        <div class="gloss-row">
+          <div class="gloss-term">Elo</div>
+          <div class="gloss-def">Each team's current rating on a 1000–2000 scale (average is ~1500). Calculated from all games this season, weighted by margin. A team with Elo 1650 is significantly stronger than one at 1450. The Elo difference is one of the most predictive single features.</div>
+        </div>
+        <div class="gloss-row">
+          <div class="gloss-term">Edge</div>
+          <div class="gloss-def"><strong>This is the core signal.</strong> Edge = our model's probability minus Pinnacle's no-vig (fair) probability for the same outcome. A +7% edge on a team means our model thinks they're 7 percentage points more likely to win than what Pinnacle's sharpest market is pricing. Edges above 6% are flagged as Grade A.</div>
+        </div>
+        <div class="gloss-row">
+          <div class="gloss-term">No-Vig Prob</div>
+          <div class="gloss-def">Pinnacle's moneyline odds converted to probability, with the bookmaker's cut mathematically removed. This is the market's "true" estimate of each team's chances. Comparing our model to this number is more meaningful than comparing to raw odds — because raw odds include the vig (house edge).</div>
+        </div>
+        <div class="gloss-row">
+          <div class="gloss-term">Kelly %</div>
+          <div class="gloss-def">The recommended bet size as a percentage of your total bankroll. Already reduced to one-quarter of the full Kelly formula for safety. If Kelly says 4%, and your bankroll is $1,000, bet $40. <strong>Never exceed this amount</strong>, and always hard-cap at 5% regardless of what the formula says.</div>
+        </div>
+        <div class="gloss-row">
+          <div class="gloss-term">Key Factors</div>
+          <div class="gloss-def">The 3–6 statistical advantages that most influenced the prediction for this game. An upward arrow (↑) means that factor favors the home team; downward (↓) favors the away team. Examples: "Net rating edge (10g)" means the home team has outscored opponents by more per 100 possessions over the last 10 games.</div>
+        </div>
+        <div class="gloss-row">
+          <div class="gloss-term">EDGE FOUND badge</div>
+          <div class="gloss-def">A green card border and "EDGE FOUND" badge means the model found a statistically meaningful gap between its prediction and Pinnacle's no-vig line — at least 3%. Only bet on games with this badge, and only on the specific side flagged in the recommendation section.</div>
+        </div>
+      </div>
+
+      <!-- ══ GRADES ══ -->
+      <div class="section-title">BET GRADES EXPLAINED</div>
+      <div class="grade-legend">
+        <div class="gl-item">
+          <div class="gl-badge A">A</div>
+          <div class="gl-title">Grade A — Strong Edge</div>
+          <div class="gl-body">Model edge vs Pinnacle no-vig exceeds <strong>6%</strong>. This is the primary bet target. Sized at full quarter-Kelly. These are rare — on most days you'll see 0–2.</div>
+        </div>
+        <div class="gl-item">
+          <div class="gl-badge B">B</div>
+          <div class="gl-title">Grade B — Moderate Edge</div>
+          <div class="gl-body">Edge between <strong>4–6%</strong>. Worth considering if LR and XGB agree. Reduce size to half Kelly. Skip if the team is on a back-to-back or a star player is out.</div>
+        </div>
+        <div class="gl-item">
+          <div class="gl-badge C">C</div>
+          <div class="gl-title">Grade C — Marginal</div>
+          <div class="gl-body">Edge between <strong>3–4%</strong>. The vig at most books will erase this advantage. <strong>Do not bet</strong> Grade C — it exists in the model for tracking purposes only.</div>
+        </div>
+        <div class="gl-item">
+          <div class="gl-badge P">PASS</div>
+          <div class="gl-title">No Edge Found</div>
+          <div class="gl-body">The model's probability is within 3% of Pinnacle's no-vig line. The market has correctly priced this game. <strong>No bet</strong>. Forcing a bet here is how bankrolls get eroded.</div>
+        </div>
+      </div>
+
+      <!-- ══ BETTING RULES ══ -->
+      <div class="section-title">BETTING RULES</div>
       <div class="strategy-grid">
         <div class="strategy-card">
-          <div class="sc-title">Bet Selection</div>
-          <div class="rule"><div class="rule-num">1</div><div><div class="rule-text">Grade A or B only</div><div class="rule-sub">A = 6%+ edge, B = 3-6%. Never bet Grade C.</div></div></div>
-          <div class="rule"><div class="rule-num">2</div><div><div class="rule-text">Require model consensus</div><div class="rule-sub">LR and XGB within 5%. Split = reduce size or pass.</div></div></div>
-          <div class="rule"><div class="rule-num">3</div><div><div class="rule-text">Check injury report first</div><div class="rule-sub">Star player out = reassess. Lines may not have adjusted yet.</div></div></div>
-          <div class="rule"><div class="rule-num">4</div><div><div class="rule-text">Max 3 bets per day</div><div class="rule-sub">Quality over quantity. Skip marginal Grade B spots.</div></div></div>
+          <div class="sc-title">When to Bet</div>
+          <div class="rule"><div class="rule-num">1</div><div><div class="rule-text">Grade A bets only by default</div><div class="rule-sub">Consider Grade B only when LR and XGB are within 5% of each other and there are no injury concerns.</div></div></div>
+          <div class="rule"><div class="rule-num">2</div><div><div class="rule-text">Check injuries before betting</div><div class="rule-sub">A star player out can shift the true probability by 5–10%. If a star is listed as out and the line hasn't moved yet, pause.</div></div></div>
+          <div class="rule"><div class="rule-num">3</div><div><div class="rule-text">Halve size on back-to-backs</div><div class="rule-sub">Teams playing their second game in two nights underperform. If the flagged side is on a B2B, cut the Kelly % in half.</div></div></div>
+          <div class="rule"><div class="rule-num">4</div><div><div class="rule-text">Max 3 bets per day</div><div class="rule-sub">More bets means more variance. Pick the highest-grade, highest-edge games. Skip the rest.</div></div></div>
         </div>
         <div class="strategy-card">
           <div class="sc-title">Bankroll Management</div>
-          <div class="rule"><div class="rule-num">1</div><div><div class="rule-text">Quarter-Kelly sizing</div><div class="rule-sub">Kelly % shown is already reduced. Never exceed it.</div></div></div>
-          <div class="rule"><div class="rule-num">2</div><div><div class="rule-text">Hard cap 5% per bet</div><div class="rule-sub">Never risk more than 5% of bankroll regardless of Kelly.</div></div></div>
-          <div class="rule"><div class="rule-num">3</div><div><div class="rule-text">Halve size on B2B</div><div class="rule-sub">B2B teams underperform expectations — reduce exposure.</div></div></div>
-          <div class="rule"><div class="rule-num">4</div><div><div class="rule-text">Line shop always</div><div class="rule-sub">Half a point or 5 cents on odds compounds significantly.</div></div></div>
+          <div class="rule"><div class="rule-num">1</div><div><div class="rule-text">Use the Kelly % shown — no more</div><div class="rule-sub">The Kelly % is already at one-quarter of the mathematically optimal bet. Going bigger increases ruin risk significantly.</div></div></div>
+          <div class="rule"><div class="rule-num">2</div><div><div class="rule-text">Hard cap: 5% per bet</div><div class="rule-sub">No single bet should ever exceed 5% of your total bankroll, regardless of how confident the model is.</div></div></div>
+          <div class="rule"><div class="rule-num">3</div><div><div class="rule-text">Shop for the best line</div><div class="rule-sub">The book with the best odds is shown next to each recommendation. Getting -110 instead of -115 on 100 bets adds up to ~$230 in profit.</div></div></div>
+          <div class="rule"><div class="rule-num">4</div><div><div class="rule-text">Track closing line value (CLV)</div><div class="rule-sub">If the line moves toward your bet from open to close, you captured real edge. Over time, positive CLV confirms the model is finding genuine inefficiencies.</div></div></div>
         </div>
         <div class="strategy-card full">
-          <div class="sc-title">When to Trust Each Model</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;font-size:12px">
-            <div><div style="color:var(--accent);font-size:10px;letter-spacing:1px;margin-bottom:5px">MONEYLINE</div>Best when ELO diff &gt;80, consensus true, edge &gt;5%. Medium favourites (-120 to -160) have the best vig-to-edge ratio. Factor attribution should show at least 2 strong signals.</div>
-            <div><div style="color:var(--yellow);font-size:10px;letter-spacing:1px;margin-bottom:5px">SPREAD</div>Only when model differs from book by 4+ pts. Most reliable mid-season. Strongest when BPM and PER differentials align with rolling margin advantage.</div>
-            <div><div style="color:var(--purple);font-size:10px;letter-spacing:1px;margin-bottom:5px">TOTALS</div>Pace mismatch is the primary signal. Fast-vs-slow matchups are systematically mispriced. B2B fatigue suppresses totals — use under when B2B teams are involved.</div>
+          <div class="sc-title">Model Performance Summary</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+            <div style="text-align:center">
+              <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:${accColor}">${acc||'--'}%</div>
+              <div style="font-size:10px;color:var(--dim);margin-top:4px;letter-spacing:1px">DIRECTIONAL ACCURACY</div>
+              <div style="font-size:10px;color:var(--dim);margin-top:2px">Holdout season test</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--accent)">${ms.ml_xgb_auc ? ms.ml_xgb_auc.toFixed(3) : ms.ml_lr_auc ? ms.ml_lr_auc.toFixed(3) : '--'}</div>
+              <div style="font-size:10px;color:var(--dim);margin-top:4px;letter-spacing:1px">XGB AUC SCORE</div>
+              <div style="font-size:10px;color:var(--dim);margin-top:2px">0.70+ is excellent for NBA</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--green)">${gradeAToday}</div>
+              <div style="font-size:10px;color:var(--dim);margin-top:4px;letter-spacing:1px">GRADE A TODAY</div>
+              <div style="font-size:10px;color:var(--dim);margin-top:2px">6%+ edge vs Pinnacle</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--yellow)">Pinnacle</div>
+              <div style="font-size:10px;color:var(--dim);margin-top:4px;letter-spacing:1px">NO-VIG BASELINE</div>
+              <div style="font-size:10px;color:var(--dim);margin-top:2px">Sharp book used for edge calc</div>
+            </div>
           </div>
+          ${fi.length ? `<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
+            <div style="font-size:10px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Top Predictive Factors (this model)</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+              ${fi.slice(0,6).map((f,i)=>`<div style="font-size:11px;color:var(--dim);display:flex;align-items:center;gap:6px">
+                <span style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--accent);min-width:16px">#${i+1}</span>
+                <span>${f.label||f.feature}</span>
+              </div>`).join('')}
+            </div>
+          </div>` : ''}
         </div>
       </div>
 
-      <div class="section-title">TODAY'S OPTIMAL BETTING PLAN <span style="font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0">${games.length} games</span></div>
-      ${!games.length?'<div class="no-data">No games today.</div>':
+      <!-- ══ TODAY'S GAME PLAN ══ -->
+      <div class="section-title">TODAY'S GAME PLAN <span style="font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0">${games.length} game${games.length!==1?'s':''} · ${gradeAToday} Grade A · ${gradeBToday} Grade B</span></div>
+      ${!games.length ? '<div class="no-data">No game data available. Run the model to generate picks.</div>' :
         todayPlan.map(p=>`
           <div class="today-rec ${p.cls}">
             <div class="tr-header">
@@ -762,6 +899,5 @@ async function loadStrategy() {
 
 loadAll();
 </script>
-
 </body>
 </html>
