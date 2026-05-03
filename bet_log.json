@@ -188,6 +188,27 @@
       "result": "PENDING",
       "closing_odds": null,
       "clv": null
+    },
+    {
+      "id": "2026-05-05_NYK_vs_PHI_ML_HOME",
+      "date": "2026-05-05",
+      "matchup": "NYK vs PHI",
+      "type": "ML",
+      "side": "HOME",
+      "team": "NYK",
+      "odds": -287,
+      "best_book": "pinnacle",
+      "model_prob": 0.883,
+      "novig_prob": 0.717,
+      "edge": 0.167,
+      "kelly_pct": 13.7,
+      "grade": "A",
+      "top_factors": [],
+      "books_count": 5,
+      "disagreement": 1.28,
+      "result": "PENDING",
+      "closing_odds": null,
+      "clv": null
     }
   ]
 }
