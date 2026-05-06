@@ -272,6 +272,48 @@
       "result": "PENDING",
       "closing_odds": null,
       "clv": null
+    },
+    {
+      "id": "2026-05-08_OKC_vs_LAL_ML_AWAY",
+      "date": "2026-05-08",
+      "matchup": "OKC vs LAL",
+      "type": "ML",
+      "side": "AWAY",
+      "team": "LAL",
+      "odds": 650,
+      "best_book": "betmgm",
+      "model_prob": 0.301,
+      "novig_prob": 0.131,
+      "edge": 0.171,
+      "kelly_pct": 4.8,
+      "grade": "A",
+      "top_factors": [],
+      "books_count": 5,
+      "disagreement": 3.4,
+      "result": "PENDING",
+      "closing_odds": null,
+      "clv": null
+    },
+    {
+      "id": "2026-05-07_DET_vs_CLE_ML_AWAY",
+      "date": "2026-05-07",
+      "matchup": "DET vs CLE",
+      "type": "ML",
+      "side": "AWAY",
+      "team": "CLE",
+      "odds": 140,
+      "best_book": "caesars",
+      "model_prob": 0.61,
+      "novig_prob": 0.419,
+      "edge": 0.191,
+      "kelly_pct": 8.3,
+      "grade": "A",
+      "top_factors": [],
+      "books_count": 5,
+      "disagreement": 2.42,
+      "result": "PENDING",
+      "closing_odds": null,
+      "clv": null
     }
   ]
 }
