@@ -398,6 +398,48 @@
       "result": "PENDING",
       "closing_odds": null,
       "clv": null
+    },
+    {
+      "id": "2026-05-10_MIN_vs_SAS_ML_HOME",
+      "date": "2026-05-10",
+      "matchup": "MIN vs SAS",
+      "type": "ML",
+      "side": "HOME",
+      "team": "MIN",
+      "odds": 164,
+      "best_book": "pinnacle",
+      "model_prob": 0.87,
+      "novig_prob": 0.368,
+      "edge": 0.503,
+      "kelly_pct": 19.8,
+      "grade": "A",
+      "top_factors": [],
+      "books_count": 5,
+      "disagreement": 2.59,
+      "result": "PENDING",
+      "closing_odds": null,
+      "clv": null
+    },
+    {
+      "id": "2026-05-10_PHI_vs_NYK_ML_AWAY",
+      "date": "2026-05-10",
+      "matchup": "PHI vs NYK",
+      "type": "ML",
+      "side": "AWAY",
+      "team": "NYK",
+      "odds": -115,
+      "best_book": "pinnacle",
+      "model_prob": 0.778,
+      "novig_prob": 0.519,
+      "edge": 0.259,
+      "kelly_pct": 13.1,
+      "grade": "A",
+      "top_factors": [],
+      "books_count": 5,
+      "disagreement": 2.68,
+      "result": "PENDING",
+      "closing_odds": null,
+      "clv": null
     }
   ]
 }
