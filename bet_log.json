@@ -482,6 +482,27 @@
       "result": "PENDING",
       "closing_odds": null,
       "clv": null
+    },
+    {
+      "id": "2026-05-13_SAS_vs_MIN_ML_AWAY",
+      "date": "2026-05-13",
+      "matchup": "SAS vs MIN",
+      "type": "ML",
+      "side": "AWAY",
+      "team": "MIN",
+      "odds": 350,
+      "best_book": "fanduel",
+      "model_prob": 0.724,
+      "novig_prob": 0.23,
+      "edge": 0.494,
+      "kelly_pct": 16.1,
+      "grade": "A",
+      "top_factors": [],
+      "books_count": 5,
+      "disagreement": 1.94,
+      "result": "PENDING",
+      "closing_odds": null,
+      "clv": null
     }
   ]
 }
