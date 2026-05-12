@@ -503,6 +503,27 @@
       "result": "PENDING",
       "closing_odds": null,
       "clv": null
+    },
+    {
+      "id": "2026-05-14_DET_vs_CLE_ML_AWAY",
+      "date": "2026-05-14",
+      "matchup": "DET vs CLE",
+      "type": "ML",
+      "side": "AWAY",
+      "team": "CLE",
+      "odds": 148,
+      "best_book": "caesars",
+      "model_prob": 0.61,
+      "novig_prob": 0.399,
+      "edge": 0.211,
+      "kelly_pct": 8.7,
+      "grade": "A",
+      "top_factors": [],
+      "books_count": 5,
+      "disagreement": 2.31,
+      "result": "PENDING",
+      "closing_odds": null,
+      "clv": null
     }
   ]
 }
