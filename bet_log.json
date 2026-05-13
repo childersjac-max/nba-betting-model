@@ -524,6 +524,27 @@
       "result": "PENDING",
       "closing_odds": null,
       "clv": null
+    },
+    {
+      "id": "2026-05-16_MIN_vs_SAS_ML_HOME",
+      "date": "2026-05-16",
+      "matchup": "MIN vs SAS",
+      "type": "ML",
+      "side": "HOME",
+      "team": "MIN",
+      "odds": 160,
+      "best_book": "draftkings",
+      "model_prob": 0.87,
+      "novig_prob": 0.374,
+      "edge": 0.496,
+      "kelly_pct": 19.7,
+      "grade": "A",
+      "top_factors": [],
+      "books_count": 5,
+      "disagreement": 1.06,
+      "result": "PENDING",
+      "closing_odds": null,
+      "clv": null
     }
   ]
 }
