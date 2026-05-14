@@ -545,6 +545,27 @@
       "result": "PENDING",
       "closing_odds": null,
       "clv": null
+    },
+    {
+      "id": "2026-05-15_CLE_vs_DET_ML_HOME",
+      "date": "2026-05-15",
+      "matchup": "CLE vs DET",
+      "type": "ML",
+      "side": "HOME",
+      "team": "CLE",
+      "odds": -166,
+      "best_book": "pinnacle",
+      "model_prob": 0.744,
+      "novig_prob": 0.606,
+      "edge": 0.138,
+      "kelly_pct": 7.9,
+      "grade": "A",
+      "top_factors": [],
+      "books_count": 5,
+      "disagreement": 1.6,
+      "result": "PENDING",
+      "closing_odds": null,
+      "clv": null
     }
   ]
 }
