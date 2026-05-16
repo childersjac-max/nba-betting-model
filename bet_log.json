@@ -566,6 +566,48 @@
       "result": "PENDING",
       "closing_odds": null,
       "clv": null
+    },
+    {
+      "id": "2026-05-18_DET_vs_CLE_ML_AWAY",
+      "date": "2026-05-18",
+      "matchup": "DET vs CLE",
+      "type": "ML",
+      "side": "AWAY",
+      "team": "CLE",
+      "odds": 169,
+      "best_book": "pinnacle",
+      "model_prob": 0.61,
+      "novig_prob": 0.36,
+      "edge": 0.25,
+      "kelly_pct": 9.5,
+      "grade": "A",
+      "top_factors": [],
+      "books_count": 5,
+      "disagreement": 2.16,
+      "result": "PENDING",
+      "closing_odds": null,
+      "clv": null
+    },
+    {
+      "id": "2026-05-19_OKC_vs_SAS_ML_HOME",
+      "date": "2026-05-19",
+      "matchup": "OKC vs SAS",
+      "type": "ML",
+      "side": "HOME",
+      "team": "OKC",
+      "odds": -254,
+      "best_book": "pinnacle",
+      "model_prob": 0.851,
+      "novig_prob": 0.694,
+      "edge": 0.158,
+      "kelly_pct": 11.9,
+      "grade": "A",
+      "top_factors": [],
+      "books_count": 5,
+      "disagreement": 2.12,
+      "result": "PENDING",
+      "closing_odds": null,
+      "clv": null
     }
   ]
 }
